@@ -1,106 +1,95 @@
 # CloudCost GitHub Action
 
-Paywalled CloudFormation cost delta analysis for Pull Requests. No CDK synth required - analyzes only the CloudFormation templates changed in your PR.
+Get instant CloudFormation cost estimates in your Pull Requests. CloudCost analyzes infrastructure cost changes before deployment, enabling engineering teams to make informed decisions about cloud spending within their existing workflow.
 
-## Features
+## Why CloudCost?
 
-- **Automatic CloudFormation Detection**: Finds CFN templates by filename patterns and content sniffing
-- **Base vs Head Diff**: Compares costs between PR base and head for accurate delta reporting
-- **License-Gated**: Requires a valid API key from CloudCost
-- **Smart Comment Updates**: Creates or updates a single PR comment (no spam)
-- **Zero Dependencies**: Pure Node.js with no npm packages required
+- **AWS Native** - Specializes in CloudFormation and CDK best practices
+- **Zero configuration** - No cloud credentials or dashboards to set up, works out of the box
+- **Prevent costly infra changes** - Get alerted before your surprise $47K AWS Bill
+- **Resource-Level Cost Breakdowns** - Precise cost deltas on storage lifecycle policies, instance sizing, volume types
 
-## Installation
 
-### 1. Purchase a License
+![CloudCost GitHub Action](screenshot.png)
 
-Visit [https://cloudcost-action-api.vercel.app/pricing](https://cloudcost-action-api.vercel.app/pricing) to get your `YOUR_API_KEY`.
+*CloudCost comment in a Pull Request, showing the cost of an infrastructure change before it is made*
+
+## Quick Start
+
+### 1. Get Your API Key
+
+Visit [cloudcostgh.com](https://cloudcostgh.com/pricing) to purchase a license.
 
 ### 2. Add Secret to Repository
 
-Add `YOUR_API_KEY` as a repository secret:
-- Go to your repo → Settings → Secrets and variables → Actions
-- Click "New repository secret"
-- Name: `YOUR_API_KEY`
-- Value: `<your-license-key>`
+1. Go to your repository → **Settings** → **Secrets and variables** → **Actions**
+2. Click **New repository secret**
+3. Name: `CLOUDCOST_API_KEY`
+4. Value: `<your-license-key>`
 
-### 3. Add Workflow
+### 3. Create Workflow
 
-Create `.github/workflows/cloudcost.yml` in your repository:
-
+Add `.github/workflows/cloudcost.yml` to your repository:
 ```yaml
-name: CloudCost
+name: CloudCost Analysis
+
 on:
   pull_request:
     types: [opened, synchronize, reopened]
+
 permissions:
   contents: read
   pull-requests: write
+
 jobs:
-  cfn-cost:
+  cost-analysis:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
         with:
-          fetch-depth: 0  # needed for base branch diffing
+          fetch-depth: 0
 
       - uses: odrori1997/cloudcost-gh-action@v0
         with:
-          api_key: ${{ secrets.YOUR_API_KEY }}
+          api_key: ${{ secrets.CLOUDCOST_API_KEY }}
           github_token: ${{ secrets.GITHUB_TOKEN }}
 ```
 
 ## How It Works
 
-1. **License Verification**: Validates your API key before proceeding
-2. **Fetch Base Branch**: Ensures git can diff against the PR base
-3. **Collect CFN Diffs**:
-   - Finds changed files via `git diff`
-   - Detects CloudFormation templates by filename and content
-   - Collects both base and head versions
-4. **Request Estimate**: Sends gzipped payload to CloudCost API
-5. **Post Comment**: Creates or updates a single PR comment with cost analysis
-
-## Supported CloudFormation Files
-
-The action detects CloudFormation templates by:
-
-**Filename patterns:**
-- `*.template.json`, `*.template.yml`, `*.template.yaml`
-- `template.json`, `template.yml`, `template.yaml`
-- Files in `cdk.out/` ending with `.json`
-
-**Content sniffing:**
-- Files containing `AWSTemplateFormatVersion`
-- Files with `Resources:` block (YAML)
+1. **Change Capture** - When you push a PR, scans for CloudFormation template changes
+2. **Accurate Estimate** - Maps resource deltas to the latest AWS pricing 
+3. **PR Integration** - Posts a single, updated comment with cost breakdown
 
 ## Requirements
 
-- Node.js 18+ on the GitHub Actions runner (ubuntu-latest includes this)
+- Node.js 18+ (included in `ubuntu-latest` runners)
 - Valid CloudCost license key
 - Repository with CloudFormation templates
+- `pull-requests: write` permission in workflow
 
 ## Troubleshooting
 
 ### "License required" error
 
-The action will:
-- Set commit status to "error" with link to purchase
-- Post a PR comment with instructions
+The action will set commit status to "error" and post a PR comment with instructions.
 
-Fix by adding `YOUR_API_KEY` secret to your repository.
+**Fix:** Add `CLOUDCOST_API_KEY` secret to your repository settings.
 
 ### No cost estimate appears
 
-Check that:
+Verify that:
 - Your PR modifies CloudFormation template files
 - Files match the detection patterns above
-- The workflow has `pull-requests: write` permission
-
-## License
-
-All Rights Reserved. This is proprietary software for licensed CloudCost users only.
+- Workflow has `pull-requests: write` permission
+- API key is valid and not expired
 
 ## Support
 
-For issues or questions, contact support or open an issue on this repository.
+- **Issues:** [Open an issue](https://github.com/odrori1997/cloudcost-gh-action/issues)
+- **Email:** omerdrori.business@gmail.com
+- **Documentation:** [Full documentation](https://cloudcost.io/docs)
+
+## License
+
+Proprietary software for licensed CloudCost users only. All rights reserved.
