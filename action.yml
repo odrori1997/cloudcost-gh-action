@@ -1,5 +1,5 @@
-name: CloudCost (CFN-only MVP)
-description: "Paywalled CFN cost delta for PRs (no CDK synth)"
+name: CloudCost
+description: "Get instant CloudFormation cost estimates in your Pull Requests. Analyze infrastructure cost changes before deployment."
 branding:
   icon: 'lock'
   color: 'blue'
