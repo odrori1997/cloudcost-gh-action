@@ -12,7 +12,7 @@ Get instant CloudFormation cost estimates in your Pull Requests. CloudCost analy
 
 ![CloudCost GitHub Action](screenshot.png)
 
-*CloudCost comment in a Pull Request, showing the cost of an infrastructure change before it is made*
+*CloudCost comment shows the cost of an infrastructure change before it is made*
 
 ## Quick Start
 
