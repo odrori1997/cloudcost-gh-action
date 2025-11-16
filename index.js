@@ -250,7 +250,7 @@ async function main() {
 
     fs.mkdirSync(analyzerDir, { recursive: true });
 
-    const analyzerUrl = `https://github.com/OWNER/REPO/releases/download/${analyzerVersion}/analyzer-linux-x64-musl.tar.gz`;
+    const analyzerUrl = `https://github.com/odrori1997/cloudcost-analyzer/archive/refs/tags/${analyzerVersion}.tar.gz`;
     const archivePath = path.join(analyzerDir, 'analyzer.tar.gz');
 
     core.info(`Downloading analyzer from ${analyzerUrl}`);
