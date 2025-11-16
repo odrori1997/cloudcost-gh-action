@@ -2,7 +2,6 @@
   "name": "cloudcost-gh-action",
   "version": "0.1.0",
   "private": true,
-  "type": "module",
   "description": "CloudCost GitHub Action - Paywalled CFN cost delta for PRs",
   "main": "dist/index.js",
   "scripts": {

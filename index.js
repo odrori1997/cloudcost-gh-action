@@ -1,10 +1,7 @@
-import { createRequire } from 'module';
-import fs from 'fs';
-import path from 'path';
-import os from 'os';
-import { execSync } from 'child_process';
-
-const require = createRequire(import.meta.url);
+const fs = require('fs');
+const path = require('path');
+const os = require('os');
+const { execSync } = require('child_process');
 const core = require('@actions/core');
 const github = require('@actions/github');
 
@@ -337,6 +334,5 @@ async function main() {
   }
 }
 
-await main();
-
+main();
 
