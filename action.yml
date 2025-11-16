@@ -1,38 +1,40 @@
-name: CloudCostGH
-description: "Get instant CloudFormation cost estimates in your Pull Requests. Analyze infrastructure cost changes before deployment."
+---
+name: 'CloudCostGH'
+description: 'Get instant CloudFormation cost estimates in your Pull Requests. Analyze infrastructure cost changes before deployment.'
+author: 'CloudCostGH'
 branding:
-  icon: 'lock'
-  color: 'blue'
+  icon: 'dollar-sign'
+  color: 'green'
 
 inputs:
   api_key:
-    description: "CloudCost API key from your dashboard"
+    description: 'CloudCost API key from your dashboard'
     required: true
   region:
-    description: "AWS region to price in"
+    description: 'AWS region to price in'
     required: false
-    default: "us-east-1"
+    default: 'us-east-1'
   usage_profile:
-    description: "Usage profile (small|med|large)"
+    description: 'Usage profile (small|med|large)'
     required: false
-    default: "small"
+    default: 'small'
   analyzer_version:
-    description: "Analyzer release tag (e.g. v0.1.0)"
+    description: 'Analyzer release tag (e.g. v0.1.0)'
     required: false
-    default: "v0.1.0"
+    default: 'v0.1.0'
   comment_title:
-    description: "Heading for the PR comment"
+    description: 'Heading for the PR comment'
     required: false
-    default: "Cloud Cost Impact"
+    default: 'Cloud Cost Impact'
   update_existing_comment:
-    description: "Update existing CloudCost comment if present"
+    description: 'Update existing CloudCost comment if present'
     required: false
-    default: "true"
+    default: 'true'
   enable_usage_reporting:
-    description: "Send a usage record to the backend after successful analysis"
+    description: 'Send a usage record to the backend after successful analysis'
     required: false
-    default: "false"
+    default: 'false'
 
 runs:
-  using: "node20"
-  main: "index.js"
+  using: 'node20'
+  main: 'index.js'
