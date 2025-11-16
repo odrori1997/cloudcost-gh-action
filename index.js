@@ -312,7 +312,7 @@ async function main() {
       const durationMs = Date.now() - startTime;
       try {
         core.startGroup('Send usage record');
-        const usageUrl = `${backendUrl.replace(/\\/$/, '')}/api/v1/usage`;
+        const usageUrl = `${backendUrl.replace(/\/$/, '')}/api/v1/usage`;
         await fetch(usageUrl, {
           method: 'POST',
           headers: {
