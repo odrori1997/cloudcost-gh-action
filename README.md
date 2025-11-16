@@ -52,7 +52,6 @@ jobs:
       - uses: odrori1997/cloudcost-gh-action@v0
         with:
           api_key: ${{ secrets.CLOUDCOST_API_KEY }}
-          github_token: ${{ secrets.GITHUB_TOKEN }}
 ```
 
 ## How It Works
