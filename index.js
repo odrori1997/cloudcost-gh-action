@@ -248,12 +248,10 @@ async function main() {
 
     fs.mkdirSync(analyzerDir, { recursive: true });
 
-    const analyzerUrl = `https://github.com/odrori1997/cloudcost-analyzer/archive/refs/tags/${analyzerVersion}.tar.gz`;
-    const archivePath = path.join(analyzerDir, 'analyzer.tar.gz');
+    const analyzerUrl = `https://github.com/odrori1997/cloudcost-analyzer/releases/download/${analyzerVersion}/analyzer`;
 
     core.info(`Downloading analyzer from ${analyzerUrl}`);
-    runCmd(`curl -sSL "${analyzerUrl}" -o "${archivePath}"`);
-    runCmd(`tar -xzf "${archivePath}" -C "${analyzerDir}"`);
+    runCmd(`curl -sSL "${analyzerUrl}" -o "${analyzerPath}"`);
     runCmd(`chmod +x "${analyzerPath}"`);
 
     const startTime = Date.now();
