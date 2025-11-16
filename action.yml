@@ -10,6 +10,9 @@ inputs:
   api_key:
     description: 'CloudCost API key from your dashboard'
     required: true
+  github_token:
+    description: 'GitHub token for posting PR comments (usually secrets.GITHUB_TOKEN)'
+    required: false
   region:
     description: 'AWS region to price in'
     required: false

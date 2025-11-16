@@ -32046,10 +32046,13 @@ async function main() {
     const enableUsageReportingInput = core.getInput('enable_usage_reporting');
     const enableUsageReporting =
       enableUsageReportingInput && enableUsageReportingInput !== 'false';
-    const githubToken = process.env.GITHUB_TOKEN;
+    const githubToken =
+      core.getInput('github_token') || process.env.GITHUB_TOKEN;
 
     if (!githubToken) {
-      core.setFailed('GITHUB_TOKEN environment variable is required to post PR comments.');
+      core.setFailed(
+        'GitHub token is required to post PR comments. Provide github_token input (usually secrets.GITHUB_TOKEN) or set GITHUB_TOKEN env.',
+      );
       return;
     }
 
