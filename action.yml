@@ -6,69 +6,33 @@ branding:
 
 inputs:
   api_key:
-    description: "License key from purchase"
+    description: "CloudCost API key from your dashboard"
     required: true
-  github_token:
-    description: "GITHUB_TOKEN"
-    required: true
+  region:
+    description: "AWS region to price in"
+    required: false
+    default: "us-east-1"
+  usage_profile:
+    description: "Usage profile (small|med|large)"
+    required: false
+    default: "small"
+  analyzer_version:
+    description: "Analyzer release tag (e.g. v0.1.0)"
+    required: false
+    default: "v0.1.0"
+  comment_title:
+    description: "Heading for the PR comment"
+    required: false
+    default: "Cloud Cost Impact"
+  update_existing_comment:
+    description: "Update existing CloudCost comment if present"
+    required: false
+    default: "true"
+  enable_usage_reporting:
+    description: "Send a usage record to the backend after successful analysis"
+    required: false
+    default: "false"
 
 runs:
-  using: "composite"
-  steps:
-    - shell: bash
-      run: node -v >/dev/null 2>&1 || { echo "Node 18+ required"; exit 1; }
-
-    # 1) Paywall
-    - name: Verify license
-      shell: bash
-      env:
-        YOUR_API_KEY: ${{ inputs.api_key }}
-        GITHUB_TOKEN: ${{ inputs.github_token }}
-        REPO: ${{ github.repository }}
-        SHA: ${{ github.sha }}
-      run: node $GITHUB_ACTION_PATH/verify-license.js "$REPO" "$SHA"
-
-    # 2) Ensure we can diff against base branch
-    - name: Fetch base branch
-      shell: bash
-      run: |
-        git fetch --no-tags --prune --depth=1 origin +refs/heads/${GITHUB_BASE_REF}:refs/remotes/origin/${GITHUB_BASE_REF}
-
-    # 3) Collect CFN diffs (base vs head) for changed files
-    - name: Collect CFN diff payload
-      id: collect
-      shell: bash
-      env:
-        BASE_REF: ${{ github.base_ref }}
-        PR_NUMBER: ${{ github.event.pull_request.number }}
-        REPO: ${{ github.repository }}
-      run: |
-        node "$GITHUB_ACTION_PATH/scripts/collect-cfn-diff.js" \
-          origin/${BASE_REF} \
-          > cfn_diff_payload.json.gz
-        echo "payload=cfn_diff_payload.json.gz" >> "$GITHUB_OUTPUT"
-
-    # 4) Send to backend → get back Markdown
-    - name: Request estimate
-      id: estimate
-      shell: bash
-      env:
-        YOUR_API_KEY: ${{ inputs.api_key }}
-        REPO: ${{ github.repository }}
-        PR_NUMBER: ${{ github.event.pull_request.number }}
-        SHA: ${{ github.sha }}
-        PAYLOAD_GZ: ${{ steps.collect.outputs.payload }}
-      run: |
-        node "$GITHUB_ACTION_PATH/scripts/run-estimator-cfn.js" \
-          "$PAYLOAD_GZ" > cloudcost_comment.md
-        echo "comment=cloudcost_comment.md" >> "$GITHUB_OUTPUT"
-
-    # 5) Post (or update) PR comment
-    - name: Post PR comment
-      shell: bash
-      env:
-        GITHUB_TOKEN: ${{ inputs.github_token }}
-        REPO: ${{ github.repository }}
-        PR_NUMBER: ${{ github.event.pull_request.number }}
-        COMMENT_MD: ${{ steps.estimate.outputs.comment }}
-      run: node "$GITHUB_ACTION_PATH/scripts/post-markdown.js"
+  using: "node20"
+  main: "index.js"
