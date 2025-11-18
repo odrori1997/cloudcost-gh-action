@@ -31834,12 +31834,22 @@ module.exports = parseParams
 /******/ 	
 /************************************************************************/
 var __webpack_exports__ = {};
+// Force immediate output - this should appear even if everything else fails
+process.stdout.write('=== CLOUDCOST ACTION SCRIPT LOADED ===\n');
+process.stdout.write(`Node version: ${process.version}\n`);
+process.stdout.write(`Platform: ${process.platform} ${process.arch}\n`);
+process.stdout.write(`Working directory: ${process.cwd()}\n`);
+
 const fs = __nccwpck_require__(9896);
 const path = __nccwpck_require__(6928);
 const os = __nccwpck_require__(857);
 const { execSync } = __nccwpck_require__(5317);
+
+process.stdout.write('Loading @actions/core...\n');
 const core = __nccwpck_require__(7484);
+process.stdout.write('Loading @actions/github...\n');
 const github = __nccwpck_require__(3228);
+process.stdout.write('All modules loaded successfully\n');
 
 function runCmd(cmd, options = {}) {
   const cmdName = cmd.split(' ')[0];
@@ -32127,6 +32137,13 @@ async function upsertPrComment(octokit, commentBody, updateExisting, commentTitl
 }
 
 async function main() {
+  // Force immediate output using multiple methods
+  process.stdout.write('========================================\n');
+  process.stdout.write('CloudCost GitHub Action - Starting\n');
+  process.stdout.write('========================================\n');
+  process.stdout.write(`[INIT] Node version: ${process.version}\n`);
+  process.stdout.write(`[INIT] Platform: ${process.platform} ${process.arch}\n`);
+  
   // Use both console.log and core.info to ensure logs appear
   console.log('========================================');
   console.log('CloudCost GitHub Action - Starting');
@@ -32737,22 +32754,36 @@ async function main() {
   }
 }
 
+// Force immediate output to ensure logs appear
+process.stdout.write('=== CLOUDCOST ACTION STARTING ===\n');
+process.stderr.write('=== CLOUDCOST ACTION STARTING (stderr) ===\n');
+
 // Ensure we catch any errors during startup
 try {
+  process.stdout.write('[STARTUP] Calling main()...\n');
   console.log('[STARTUP] Calling main()...');
-  main().catch((error) => {
-    console.error('[STARTUP] Unhandled error in main():', error);
-    core.error(`[STARTUP] Unhandled error in main(): ${error.message || String(error)}`);
-    if (error.stack) {
-      console.error('[STARTUP] Stack trace:', error.stack);
-      core.error(`[STARTUP] Stack trace: ${error.stack}`);
-    }
-    process.exit(1);
-  });
+  core.info('[STARTUP] Calling main()...');
+  
+  const mainPromise = main();
+  if (mainPromise && typeof mainPromise.then === 'function') {
+    mainPromise.catch((error) => {
+      process.stderr.write(`[STARTUP] Unhandled error in main(): ${error.message || String(error)}\n`);
+      console.error('[STARTUP] Unhandled error in main():', error);
+      core.error(`[STARTUP] Unhandled error in main(): ${error.message || String(error)}`);
+      if (error.stack) {
+        process.stderr.write(`[STARTUP] Stack trace: ${error.stack}\n`);
+        console.error('[STARTUP] Stack trace:', error.stack);
+        core.error(`[STARTUP] Stack trace: ${error.stack}`);
+      }
+      process.exit(1);
+    });
+  }
 } catch (error) {
+  process.stderr.write(`[STARTUP] Error calling main(): ${error.message || String(error)}\n`);
   console.error('[STARTUP] Error calling main():', error);
   core.error(`[STARTUP] Error calling main(): ${error.message || String(error)}`);
   if (error.stack) {
+    process.stderr.write(`[STARTUP] Stack trace: ${error.stack}\n`);
     console.error('[STARTUP] Stack trace:', error.stack);
     core.error(`[STARTUP] Stack trace: ${error.stack}`);
   }

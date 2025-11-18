@@ -83,3 +83,5 @@ runs:
       env:
         # Pass the GitHub token input through to the Node script
         GITHUB_TOKEN: ${{ inputs.github_token }}
+        # Pass the API key input through to the Node script
+        CLOUDCOST_API_KEY: ${{ inputs.api_key }}
