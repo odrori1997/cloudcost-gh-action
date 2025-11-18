@@ -13,6 +13,10 @@ inputs:
   github_token:
     description: 'GitHub token for posting PR comments (usually secrets.GITHUB_TOKEN)'
     required: false
+  node_version:
+    description: 'Node.js version to use (auto-detects from .nvmrc or .node-version if not specified, defaults to lts/*)'
+    required: false
+    default: ''
   region:
     description: 'AWS region to price in'
     required: false
@@ -39,5 +43,43 @@ inputs:
     default: 'false'
 
 runs:
-  using: 'node20'
-  main: 'dist/index.js'
+  using: 'composite'
+  steps:
+    - name: Detect Node version file
+      id: detect-node
+      shell: bash
+      run: |
+        if [ -f ".nvmrc" ]; then
+          echo "version-file=.nvmrc" >> $GITHUB_OUTPUT
+        elif [ -f ".node-version" ]; then
+          echo "version-file=.node-version" >> $GITHUB_OUTPUT
+        else
+          echo "version-file=" >> $GITHUB_OUTPUT
+        fi
+
+    - name: Set up Node.js (with version file)
+      if: steps.detect-node.outputs.version-file != '' && inputs.node_version == ''
+      uses: actions/setup-node@v4
+      with:
+        node-version-file: ${{ steps.detect-node.outputs.version-file }}
+        cache: 'npm'
+        cache-dependency-path: 'package-lock.json'
+
+    - name: Set up Node.js (explicit or default)
+      if: steps.detect-node.outputs.version-file == '' || inputs.node_version != ''
+      uses: actions/setup-node@v4
+      with:
+        node-version: ${{ inputs.node_version || 'lts/*' }}
+        cache: 'npm'
+        cache-dependency-path: 'package-lock.json'
+
+    - name: Install dependencies
+      run: npm ci
+      shell: bash
+
+    - name: Run CloudCost analysis
+      run: node dist/index.js
+      shell: bash
+      env:
+        # Pass the GitHub token input through to the Node script
+        GITHUB_TOKEN: ${{ inputs.github_token }}
