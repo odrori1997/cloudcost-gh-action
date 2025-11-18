@@ -32768,36 +32768,31 @@ process.stdout.write('=== CLOUDCOST ACTION STARTING ===\n');
 process.stderr.write('=== CLOUDCOST ACTION STARTING (stderr) ===\n');
 
 // Ensure we catch any errors during startup
-try {
-  process.stdout.write('[STARTUP] Calling main()...\n');
-  console.log('[STARTUP] Calling main()...');
-  core.info('[STARTUP] Calling main()...');
-  
-  const mainPromise = main();
-  if (mainPromise && typeof mainPromise.then === 'function') {
-    mainPromise.catch((error) => {
-      process.stderr.write(`[STARTUP] Unhandled error in main(): ${error.message || String(error)}\n`);
-      console.error('[STARTUP] Unhandled error in main():', error);
-      core.error(`[STARTUP] Unhandled error in main(): ${error.message || String(error)}`);
-      if (error.stack) {
-        process.stderr.write(`[STARTUP] Stack trace: ${error.stack}\n`);
-        console.error('[STARTUP] Stack trace:', error.stack);
-        core.error(`[STARTUP] Stack trace: ${error.stack}`);
-      }
-      process.exit(1);
-    });
+(async () => {
+  try {
+    process.stdout.write('[STARTUP] Calling main()...\n');
+    console.log('[STARTUP] Calling main()...');
+    core.info('[STARTUP] Calling main()...');
+    
+    // Await the main function to ensure it completes before the process exits
+    await main();
+    
+    process.stdout.write('[STARTUP] main() completed successfully\n');
+    console.log('[STARTUP] main() completed successfully');
+    core.info('[STARTUP] main() completed successfully');
+  } catch (error) {
+    process.stderr.write(`[STARTUP] Error in main(): ${error.message || String(error)}\n`);
+    console.error('[STARTUP] Error in main():', error);
+    core.error(`[STARTUP] Error in main(): ${error.message || String(error)}`);
+    if (error.stack) {
+      process.stderr.write(`[STARTUP] Stack trace: ${error.stack}\n`);
+      console.error('[STARTUP] Stack trace:', error.stack);
+      core.error(`[STARTUP] Stack trace: ${error.stack}`);
+    }
+    core.setFailed(error.message || String(error));
+    process.exit(1);
   }
-} catch (error) {
-  process.stderr.write(`[STARTUP] Error calling main(): ${error.message || String(error)}\n`);
-  console.error('[STARTUP] Error calling main():', error);
-  core.error(`[STARTUP] Error calling main(): ${error.message || String(error)}`);
-  if (error.stack) {
-    process.stderr.write(`[STARTUP] Stack trace: ${error.stack}\n`);
-    console.error('[STARTUP] Stack trace:', error.stack);
-    core.error(`[STARTUP] Stack trace: ${error.stack}`);
-  }
-  process.exit(1);
-}
+})();
 
 
 module.exports = __webpack_exports__;
