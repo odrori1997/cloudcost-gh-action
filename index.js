@@ -1,8 +1,17 @@
 // Force immediate output - this should appear even if everything else fails
+// Write to both stdout and stderr to ensure visibility
 process.stdout.write('=== CLOUDCOST ACTION SCRIPT LOADED ===\n');
+process.stderr.write('=== CLOUDCOST ACTION SCRIPT LOADED (stderr) ===\n');
 process.stdout.write(`Node version: ${process.version}\n`);
+process.stderr.write(`Node version (stderr): ${process.version}\n`);
 process.stdout.write(`Platform: ${process.platform} ${process.arch}\n`);
+process.stderr.write(`Platform (stderr): ${process.platform} ${process.arch}\n`);
 process.stdout.write(`Working directory: ${process.cwd()}\n`);
+process.stderr.write(`Working directory (stderr): ${process.cwd()}\n`);
+
+// Force flush stdout/stderr (if available)
+if (process.stdout.flush) process.stdout.flush();
+if (process.stderr.flush) process.stderr.flush();
 
 const fs = require('fs');
 const path = require('path');
