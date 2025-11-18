@@ -45,17 +45,36 @@ inputs:
 runs:
   using: 'composite'
   steps:
+    - name: Test log output
+      shell: bash
+      run: |
+        echo "=========================================="
+        echo "TEST LOG: CloudCost Action Starting"
+        echo "=========================================="
+        echo "Current time: $(date)"
+        echo "Working directory: $(pwd)"
+        echo "GitHub workspace: ${{ env.GITHUB_WORKSPACE }}"
+        echo "Runner OS: ${{ runner.os }}"
+        echo "Runner arch: ${{ runner.arch }}"
+        echo "Node version will be detected next..."
+        echo "=========================================="
+    
     - name: Detect Node version file
       id: detect-node
       shell: bash
       run: |
+        echo "Detecting Node version file..."
         if [ -f ".nvmrc" ]; then
+          echo "Found .nvmrc file"
           echo "version-file=.nvmrc" >> $GITHUB_OUTPUT
         elif [ -f ".node-version" ]; then
+          echo "Found .node-version file"
           echo "version-file=.node-version" >> $GITHUB_OUTPUT
         else
+          echo "No Node version file found, will use default"
           echo "version-file=" >> $GITHUB_OUTPUT
         fi
+        echo "Node version detection complete"
 
     - name: Set up Node.js (with version file)
       if: steps.detect-node.outputs.version-file != '' && inputs.node_version == ''
@@ -74,12 +93,39 @@ runs:
         cache-dependency-path: 'package-lock.json'
 
     - name: Install dependencies
-      run: npm ci
       shell: bash
+      run: |
+        echo "Installing npm dependencies..."
+        npm ci
+        echo "Dependencies installed successfully"
+
+    - name: Test log before running analysis
+      shell: bash
+      run: |
+        echo "=========================================="
+        echo "TEST LOG: About to run CloudCost analysis"
+        echo "=========================================="
+        echo "Current time: $(date)"
+        echo "Node version: $(node --version)"
+        echo "NPM version: $(npm --version)"
+        echo "Checking if dist/index.js exists..."
+        if [ -f "dist/index.js" ]; then
+          echo "✓ dist/index.js exists"
+          echo "File size: $(stat -f%z dist/index.js 2>/dev/null || stat -c%s dist/index.js 2>/dev/null || echo 'unknown') bytes"
+        else
+          echo "✗ dist/index.js NOT FOUND"
+        fi
+        echo "Environment check:"
+        echo "  GITHUB_TOKEN: $([ -n "${{ inputs.github_token }}" ] && echo 'SET' || echo 'NOT SET')"
+        echo "  CLOUDCOST_API_KEY: $([ -n "${{ inputs.api_key }}" ] && echo 'SET' || echo 'NOT SET')"
+        echo "=========================================="
 
     - name: Run CloudCost analysis
-      run: node dist/index.js
       shell: bash
+      run: |
+        echo "Starting CloudCost analysis script..."
+        node dist/index.js
+        echo "CloudCost analysis script completed"
       env:
         # Pass the GitHub token input through to the Node script
         GITHUB_TOKEN: ${{ inputs.github_token }}
