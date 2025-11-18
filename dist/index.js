@@ -32127,24 +32127,47 @@ async function upsertPrComment(octokit, commentBody, updateExisting, commentTitl
 }
 
 async function main() {
+  // Use both console.log and core.info to ensure logs appear
+  console.log('========================================');
+  console.log('CloudCost GitHub Action - Starting');
+  console.log('========================================');
   core.info('========================================');
   core.info('CloudCost GitHub Action - Starting');
   core.info('========================================');
+  console.log(`[INIT] Node version: ${process.version}`);
   core.info(`[INIT] Node version: ${process.version}`);
+  console.log(`[INIT] Platform: ${process.platform} ${process.arch}`);
   core.info(`[INIT] Platform: ${process.platform} ${process.arch}`);
+  console.log(`[INIT] Working directory: ${process.cwd()}`);
   core.info(`[INIT] Working directory: ${process.cwd()}`);
+  console.log(`[INIT] Process PID: ${process.pid}`);
   core.info(`[INIT] Process PID: ${process.pid}`);
+  console.log(`[INIT] Environment variables:`);
   core.info(`[INIT] Environment variables:`);
-  core.info(`  - GITHUB_TOKEN: ${process.env.GITHUB_TOKEN ? `Set (${process.env.GITHUB_TOKEN.length} chars)` : 'NOT SET'}`);
-  core.info(`  - CLOUDCOST_API_KEY: ${process.env.CLOUDCOST_API_KEY ? `Set (${process.env.CLOUDCOST_API_KEY.length} chars)` : 'NOT SET'}`);
-  core.info(`  - APP_CONFIG: ${process.env.APP_CONFIG || 'NOT SET'}`);
-  core.info(`  - RUNNER_TEMP: ${process.env.RUNNER_TEMP || 'NOT SET'}`);
-  core.info(`  - GITHUB_WORKSPACE: ${process.env.GITHUB_WORKSPACE || 'NOT SET'}`);
+  const envLog = `  - GITHUB_TOKEN: ${process.env.GITHUB_TOKEN ? `Set (${process.env.GITHUB_TOKEN.length} chars)` : 'NOT SET'}`;
+  console.log(envLog);
+  core.info(envLog);
+  const apiKeyLog = `  - CLOUDCOST_API_KEY: ${process.env.CLOUDCOST_API_KEY ? `Set (${process.env.CLOUDCOST_API_KEY.length} chars)` : 'NOT SET'}`;
+  console.log(apiKeyLog);
+  core.info(apiKeyLog);
+  const appConfigLog = `  - APP_CONFIG: ${process.env.APP_CONFIG || 'NOT SET'}`;
+  console.log(appConfigLog);
+  core.info(appConfigLog);
+  const runnerTempLog = `  - RUNNER_TEMP: ${process.env.RUNNER_TEMP || 'NOT SET'}`;
+  console.log(runnerTempLog);
+  core.info(runnerTempLog);
+  const workspaceLog = `  - GITHUB_WORKSPACE: ${process.env.GITHUB_WORKSPACE || 'NOT SET'}`;
+  console.log(workspaceLog);
+  core.info(workspaceLog);
   
   try {
     core.info('=== Reading configuration ===');
     const backendUrl = 'https://cloudcost-action-api.vercel.app/';
-    core.info(`Backend URL: ${backendUrl}`);
+    core.info(`[CONFIG] Backend URL: ${backendUrl}`);
+    console.log(`[CONFIG] Backend URL: ${backendUrl}`);
+    core.info(`[CONFIG] [BACKEND] All backend requests will be made to: ${backendUrl}`);
+    core.info(`[CONFIG] [BACKEND] The analyzer binary will make pricing API requests to this backend`);
+    core.info(`[CONFIG] [BACKEND] Usage reporting will be sent to: ${backendUrl}/api/v1/usage`);
     
     const region = core.getInput('region') || 'us-east-1';
     core.info(`Region: ${region}`);
@@ -32355,10 +32378,21 @@ async function main() {
     core.info(`[HEAD] Backend URL: ${backendUrl}`);
     core.info(`[HEAD] Expected output JSON: ${headJson}`);
     
+    // Log what backend requests the analyzer will make
+    core.info(`[HEAD] [BACKEND] Analyzer will make requests to backend:`);
+    core.info(`[HEAD] [BACKEND]   - Base URL: ${backendUrl}`);
+    core.info(`[HEAD] [BACKEND]   - API Key: Set (${apiKey.length} chars, starts with: ${apiKey.substring(0, 4)}...)`);
+    core.info(`[HEAD] [BACKEND]   - Region: ${region}`);
+    core.info(`[HEAD] [BACKEND]   - Usage Profile: ${usageProfile}`);
+    core.info(`[HEAD] [BACKEND]   - The analyzer will query pricing data from the backend API`);
+    core.info(`[HEAD] [BACKEND]   - Watch for analyzer's HTTP request logs above`);
+    
     const analyzerStartTime = Date.now();
+    core.info(`[HEAD] [BACKEND] Starting analyzer execution (will make backend requests)...`);
     runCmd(headAnalyzerCmd, { cwd: workDir });
     const analyzerDuration = Date.now() - analyzerStartTime;
     core.info(`[HEAD] Analyzer command completed (took ${analyzerDuration}ms)`);
+    core.info(`[HEAD] [BACKEND] Analyzer execution finished - check above for any HTTP request logs from the analyzer`);
     
     core.info(`[HEAD] Checking for head report file...`);
     if (fs.existsSync(headJson)) {
@@ -32451,10 +32485,21 @@ async function main() {
     core.info(`[BASE] Backend URL: ${backendUrl}`);
     core.info(`[BASE] Expected output JSON: ${baseJson}`);
     
+    // Log what backend requests the analyzer will make
+    core.info(`[BASE] [BACKEND] Analyzer will make requests to backend:`);
+    core.info(`[BASE] [BACKEND]   - Base URL: ${backendUrl}`);
+    core.info(`[BASE] [BACKEND]   - API Key: Set (${apiKey.length} chars, starts with: ${apiKey.substring(0, 4)}...)`);
+    core.info(`[BASE] [BACKEND]   - Region: ${region}`);
+    core.info(`[BASE] [BACKEND]   - Usage Profile: ${usageProfile}`);
+    core.info(`[BASE] [BACKEND]   - The analyzer will query pricing data from the backend API`);
+    core.info(`[BASE] [BACKEND]   - Watch for analyzer's HTTP request logs above`);
+    
     const baseAnalyzerStartTime = Date.now();
+    core.info(`[BASE] [BACKEND] Starting analyzer execution (will make backend requests)...`);
     runCmd(baseAnalyzerCmd, { cwd: workDir });
     const baseAnalyzerDuration = Date.now() - baseAnalyzerStartTime;
     core.info(`[BASE] Analyzer command completed (took ${baseAnalyzerDuration}ms)`);
+    core.info(`[BASE] [BACKEND] Analyzer execution finished - check above for any HTTP request logs from the analyzer`);
     
     core.info(`[BASE] Checking for base report file...`);
     if (fs.existsSync(baseJson)) {
@@ -32549,49 +32594,87 @@ async function main() {
         };
         core.info(`Usage payload: ${JSON.stringify(usagePayload, null, 2)}`);
         
-        core.info(`[USAGE] Preparing to send POST request...`);
-        core.info(`[USAGE] URL: ${usageUrl}`);
-        core.info(`[USAGE] Method: POST`);
-        core.info(`[USAGE] Headers: Content-Type=application/json, Authorization=Bearer ***`);
-        core.info(`[USAGE] Payload size: ${JSON.stringify(usagePayload).length} bytes`);
+        core.info(`[USAGE] [BACKEND] Preparing to send POST request to backend...`);
+        core.info(`[USAGE] [BACKEND] Request URL: ${usageUrl}`);
+        core.info(`[USAGE] [BACKEND] Request method: POST`);
+        core.info(`[USAGE] [BACKEND] Request headers:`);
+        core.info(`[USAGE] [BACKEND]   - Content-Type: application/json`);
+        core.info(`[USAGE] [BACKEND]   - Authorization: Bearer *** (${apiKey.length} chars)`);
+        core.info(`[USAGE] [BACKEND] Request payload: ${JSON.stringify(usagePayload, null, 2)}`);
+        core.info(`[USAGE] [BACKEND] Payload size: ${JSON.stringify(usagePayload).length} bytes`);
         
         const fetchStartTime = Date.now();
-        core.info(`[USAGE] Sending POST request to usage endpoint...`);
+        core.info(`[USAGE] [BACKEND] Sending POST request to ${usageUrl}...`);
+        console.log(`[USAGE] [BACKEND] Sending POST request to ${usageUrl}...`);
         
         let response;
         try {
-          response = await fetch(usageUrl, {
+          const requestOptions = {
             method: 'POST',
             headers: {
               'Content-Type': 'application/json',
               Authorization: `Bearer ${apiKey}`,
             },
             body: JSON.stringify(usagePayload),
-          });
+          };
+          core.info(`[USAGE] [BACKEND] Request options: ${JSON.stringify({...requestOptions, headers: {...requestOptions.headers, Authorization: 'Bearer ***'}}, null, 2)}`);
+          console.log(`[USAGE] [BACKEND] Making fetch request...`);
+          
+          response = await fetch(usageUrl, requestOptions);
+          
+          console.log(`[USAGE] [BACKEND] Fetch request completed, status: ${response.status}`);
         } catch (fetchError) {
-          core.error(`[USAGE] ✗ Fetch request failed: ${fetchError.message}`);
-          core.error(`[USAGE] Error type: ${fetchError.constructor.name}`);
+          const errorDetails = {
+            message: fetchError.message,
+            type: fetchError.constructor.name,
+            name: fetchError.name,
+            cause: fetchError.cause,
+            stack: fetchError.stack?.split('\n').slice(0, 5).join('\n'),
+          };
+          core.error(`[USAGE] [BACKEND] ✗ Fetch request failed`);
+          core.error(`[USAGE] [BACKEND] Error message: ${fetchError.message}`);
+          core.error(`[USAGE] [BACKEND] Error type: ${fetchError.constructor.name}`);
+          core.error(`[USAGE] [BACKEND] Error name: ${fetchError.name || 'N/A'}`);
+          console.error(`[USAGE] [BACKEND] Fetch error:`, errorDetails);
           if (fetchError.cause) {
-            core.error(`[USAGE] Error cause: ${JSON.stringify(fetchError.cause)}`);
+            core.error(`[USAGE] [BACKEND] Error cause: ${JSON.stringify(fetchError.cause)}`);
+          }
+          if (fetchError.code) {
+            core.error(`[USAGE] [BACKEND] Error code: ${fetchError.code}`);
+          }
+          if (fetchError.errno) {
+            core.error(`[USAGE] [BACKEND] Error errno: ${fetchError.errno}`);
           }
           throw fetchError;
         }
         
         const fetchDuration = Date.now() - fetchStartTime;
-        core.info(`[USAGE] Request completed (took ${fetchDuration}ms)`);
-        core.info(`[USAGE] Response status: ${response.status} ${response.statusText}`);
-        core.info(`[USAGE] Response headers: ${JSON.stringify(Object.fromEntries(response.headers.entries()))}`);
+        core.info(`[USAGE] [BACKEND] Request completed (took ${fetchDuration}ms)`);
+        console.log(`[USAGE] [BACKEND] Request duration: ${fetchDuration}ms`);
+        core.info(`[USAGE] [BACKEND] Response status: ${response.status} ${response.statusText}`);
+        core.info(`[USAGE] [BACKEND] Response ok: ${response.ok}`);
+        core.info(`[USAGE] [BACKEND] Response redirected: ${response.redirected}`);
+        core.info(`[USAGE] [BACKEND] Response type: ${response.type}`);
+        core.info(`[USAGE] [BACKEND] Response URL: ${response.url}`);
+        
+        const responseHeaders = Object.fromEntries(response.headers.entries());
+        core.info(`[USAGE] [BACKEND] Response headers: ${JSON.stringify(responseHeaders, null, 2)}`);
+        console.log(`[USAGE] [BACKEND] Response headers:`, responseHeaders);
         
         const responseText = await response.text();
-        core.info(`[USAGE] Response body length: ${responseText.length} chars`);
+        core.info(`[USAGE] [BACKEND] Response body length: ${responseText.length} chars`);
+        console.log(`[USAGE] [BACKEND] Response body length: ${responseText.length} chars`);
         if (responseText.length > 0) {
           if (responseText.length > 1000) {
-            core.info(`[USAGE] Response body preview: ${responseText.substring(0, 1000)}...`);
+            core.info(`[USAGE] [BACKEND] Response body preview: ${responseText.substring(0, 1000)}...`);
+            console.log(`[USAGE] [BACKEND] Response body preview: ${responseText.substring(0, 1000)}...`);
           } else {
-            core.info(`[USAGE] Response body: ${responseText}`);
+            core.info(`[USAGE] [BACKEND] Response body: ${responseText}`);
+            console.log(`[USAGE] [BACKEND] Response body:`, responseText);
           }
         } else {
-          core.info(`[USAGE] Response body is empty`);
+          core.info(`[USAGE] [BACKEND] Response body is empty`);
+          console.log(`[USAGE] [BACKEND] Response body is empty`);
         }
         
         if (!response.ok) {
@@ -32654,7 +32737,27 @@ async function main() {
   }
 }
 
-main();
+// Ensure we catch any errors during startup
+try {
+  console.log('[STARTUP] Calling main()...');
+  main().catch((error) => {
+    console.error('[STARTUP] Unhandled error in main():', error);
+    core.error(`[STARTUP] Unhandled error in main(): ${error.message || String(error)}`);
+    if (error.stack) {
+      console.error('[STARTUP] Stack trace:', error.stack);
+      core.error(`[STARTUP] Stack trace: ${error.stack}`);
+    }
+    process.exit(1);
+  });
+} catch (error) {
+  console.error('[STARTUP] Error calling main():', error);
+  core.error(`[STARTUP] Error calling main(): ${error.message || String(error)}`);
+  if (error.stack) {
+    console.error('[STARTUP] Stack trace:', error.stack);
+    core.error(`[STARTUP] Stack trace: ${error.stack}`);
+  }
+  process.exit(1);
+}
 
 
 module.exports = __webpack_exports__;
