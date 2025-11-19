@@ -128,9 +128,15 @@ runs:
         echo "  GITHUB_TOKEN: $([ -n "$GITHUB_TOKEN" ] && echo 'SET' || echo 'NOT SET')"
         echo "  CLOUDCOST_API_KEY: $([ -n "$CLOUDCOST_API_KEY" ] && echo 'SET' || echo 'NOT SET')"
         echo "  APP_CONFIG: $([ -n "$APP_CONFIG" ] && echo 'SET ($APP_CONFIG)' || echo 'NOT SET')"
+        echo "Checking dist/index.js file:"
+        echo "  File exists: $([ -f "dist/index.js" ] && echo 'YES' || echo 'NO')"
+        echo "  File size: $(stat -f%z dist/index.js 2>/dev/null || stat -c%s dist/index.js 2>/dev/null || echo 'unknown') bytes"
+        echo "  First 100 chars: $(head -c 100 dist/index.js 2>/dev/null || echo 'cannot read')"
         echo "Running: node dist/index.js"
-        node dist/index.js
-        EXIT_CODE=$?
+        echo "--- START OF SCRIPT OUTPUT ---"
+        node dist/index.js 2>&1 | head -50 || true
+        EXIT_CODE=${PIPESTATUS[0]}
+        echo "--- END OF SCRIPT OUTPUT ---"
         echo "CloudCost analysis script completed with exit code: $EXIT_CODE"
         if [ $EXIT_CODE -ne 0 ]; then
           echo "ERROR: Script exited with non-zero code: $EXIT_CODE"

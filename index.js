@@ -26,10 +26,10 @@ process.stdout.write('All modules loaded successfully\n');
 
 function runCmd(cmd, options = {}) {
   const cmdName = cmd.split(' ')[0];
-  core.info(`[CMD] Executing: ${cmdName}`);
-  core.info(`[CMD] Full command: ${cmd.replace(/(--api-key\s+)"[^"]+"/g, '$1"***"')}`);
-  core.info(`[CMD] Working directory: ${options.cwd || process.cwd()}`);
-  core.info(`[CMD] Environment variables present: ${Object.keys(options.env || {}).length > 0 ? 'Yes' : 'No'}`);
+  console.log(`[CMD] Executing: ${cmdName}`);
+  console.log(`[CMD] Full command: ${cmd.replace(/(--api-key\s+)"[^"]+"/g, '$1"***"')}`);
+  console.log(`[CMD] Working directory: ${options.cwd || process.cwd()}`);
+  console.log(`[CMD] Environment variables present: ${Object.keys(options.env || {}).length > 0 ? 'Yes' : 'No'}`);
   
   try {
     const startTime = Date.now();
@@ -43,41 +43,41 @@ function runCmd(cmd, options = {}) {
     });
     
     const duration = Date.now() - startTime;
-    core.info(`[CMD] ✓ Command succeeded: ${cmdName} (took ${duration}ms)`);
+    console.log(`[CMD] ✓ Command succeeded: ${cmdName} (took ${duration}ms)`);
     
     // Note: With stdio: 'inherit', result will be undefined for most commands
     // but that's okay - we see the output in real-time which is more important
     if (result && result.length > 0) {
-      core.info(`[CMD] Command returned output (length: ${result.length} chars)`);
+      console.log(`[CMD] Command returned output (length: ${result.length} chars)`);
       if (result.length > 500) {
-        core.info(`[CMD] Output preview: ${result.substring(0, 500)}...`);
+        console.log(`[CMD] Output preview: ${result.substring(0, 500)}...`);
       } else {
-        core.info(`[CMD] Output: ${result}`);
+        console.log(`[CMD] Output: ${result}`);
       }
     }
     
     return result;
   } catch (err) {
-    core.error(`[CMD] ✗ Command failed: ${cmdName}`);
-    core.error(`[CMD] Error message: ${err.message || String(err)}`);
-    core.error(`[CMD] Error code: ${err.status || err.code || 'N/A'}`);
-    core.error(`[CMD] Error signal: ${err.signal || 'N/A'}`);
+    console.error(`[CMD] ✗ Command failed: ${cmdName}`);
+    console.error(`[CMD] Error message: ${err.message || String(err)}`);
+    console.error(`[CMD] Error code: ${err.status || err.code || 'N/A'}`);
+    console.error(`[CMD] Error signal: ${err.signal || 'N/A'}`);
     
     // execSync with stdio: 'inherit' doesn't capture stdout/stderr in err
     // but we try to get what we can
     if (err.stdout) {
-      core.error(`[CMD] Stdout: ${err.stdout}`);
+      console.error(`[CMD] Stdout: ${err.stdout}`);
     }
     if (err.stderr) {
-      core.error(`[CMD] Stderr: ${err.stderr}`);
+      console.error(`[CMD] Stderr: ${err.stderr}`);
     }
     if (err.output && Array.isArray(err.output)) {
-      core.error(`[CMD] Output array length: ${err.output.length}`);
+      console.error(`[CMD] Output array length: ${err.output.length}`);
       err.output.forEach((output, idx) => {
         if (output) {
           const outputStr = output.toString();
           if (outputStr.length > 0) {
-            core.error(`[CMD] Output[${idx}]: ${outputStr.substring(0, 500)}${outputStr.length > 500 ? '...' : ''}`);
+            console.error(`[CMD] Output[${idx}]: ${outputStr.substring(0, 500)}${outputStr.length > 500 ? '...' : ''}`);
           }
         }
       });
@@ -88,14 +88,14 @@ function runCmd(cmd, options = {}) {
 }
 
 function readJson(filePath) {
-  core.info(`Reading JSON file: ${filePath}`);
+  console.log(`Reading JSON file: ${filePath}`);
   if (!fs.existsSync(filePath)) {
     throw new Error(`File does not exist: ${filePath}`);
   }
   const raw = fs.readFileSync(filePath, 'utf8');
-  core.info(`File size: ${raw.length} bytes`);
+  console.log(`File size: ${raw.length} bytes`);
   const parsed = JSON.parse(raw);
-  core.info(`✓ Successfully parsed JSON from ${filePath}`);
+  console.log(`✓ Successfully parsed JSON from ${filePath}`);
   return parsed;
 }
 
@@ -236,28 +236,28 @@ function renderMarkdown(delta, commentTitle) {
 }
 
 async function upsertPrComment(octokit, commentBody, updateExisting, commentTitle) {
-  core.info('=== Starting PR comment upsert ===');
+  console.log('=== Starting PR comment upsert ===');
   const context = github.context;
   const { owner, repo } = context.repo;
-  core.info(`Repository: ${owner}/${repo}`);
-  core.info(`Event name: ${context.eventName}`);
-  core.info(`Action: ${context.action}`);
+  console.log(`Repository: ${owner}/${repo}`);
+  console.log(`Event name: ${context.eventName}`);
+  console.log(`Action: ${context.action}`);
   
   const pull = context.payload.pull_request;
   if (!pull) {
-    core.warning('Not a pull_request event; skipping PR comment.');
-    core.info(`Context payload keys: ${Object.keys(context.payload).join(', ')}`);
+    console.warn('Not a pull_request event; skipping PR comment.');
+    console.log(`Context payload keys: ${Object.keys(context.payload).join(', ')}`);
     return;
   }
   
   const issue_number = pull.number;
-  core.info(`PR number: ${issue_number}`);
-  core.info(`PR head SHA: ${pull.head?.sha}`);
-  core.info(`PR base SHA: ${pull.base?.sha}`);
-  core.info(`Comment body length: ${commentBody.length} characters`);
+  console.log(`PR number: ${issue_number}`);
+  console.log(`PR head SHA: ${pull.head?.sha}`);
+  console.log(`PR base SHA: ${pull.base?.sha}`);
+  console.log(`Comment body length: ${commentBody.length} characters`);
 
   const marker = '<!-- cloudcostgh-comment -->';
-  core.info(`Fetching existing comments for PR #${issue_number}...`);
+  console.log(`Fetching existing comments for PR #${issue_number}...`);
   
   try {
     const comments = await octokit.rest.issues.listComments({
@@ -267,26 +267,26 @@ async function upsertPrComment(octokit, commentBody, updateExisting, commentTitl
       per_page: 100,
     });
     
-    core.info(`Found ${comments.data.length} total comments on PR #${issue_number}`);
+    console.log(`Found ${comments.data.length} total comments on PR #${issue_number}`);
 
     const existing = comments.data.find((c) =>
       c.body && c.body.includes(marker),
     );
 
     if (existing && updateExisting) {
-      core.info(`Updating existing CloudCost comment (ID: ${existing.id}).`);
+      console.log(`Updating existing CloudCost comment (ID: ${existing.id}).`);
       const result = await octokit.rest.issues.updateComment({
         owner,
         repo,
         comment_id: existing.id,
         body: commentBody,
       });
-      core.info(`✓ Successfully updated comment. Comment URL: ${result.data.html_url}`);
+      console.log(`✓ Successfully updated comment. Comment URL: ${result.data.html_url}`);
     } else {
       if (existing) {
-        core.info(`Found existing comment but updateExisting is false, skipping update.`);
+        console.log(`Found existing comment but updateExisting is false, skipping update.`);
       } else {
-        core.info('No existing CloudCost comment found, creating new one.');
+        console.log('No existing CloudCost comment found, creating new one.');
       }
       const result = await octokit.rest.issues.createComment({
         owner,
@@ -294,195 +294,168 @@ async function upsertPrComment(octokit, commentBody, updateExisting, commentTitl
         issue_number,
         body: commentBody,
       });
-      core.info(`✓ Successfully created comment. Comment URL: ${result.data.html_url}`);
+      console.log(`✓ Successfully created comment. Comment URL: ${result.data.html_url}`);
     }
-    core.info('=== PR comment upsert completed successfully ===');
+    console.log('=== PR comment upsert completed successfully ===');
   } catch (error) {
-    core.error(`✗ Failed to upsert PR comment: ${error.message || String(error)}`);
+    console.error(`✗ Failed to upsert PR comment: ${error.message || String(error)}`);
     if (error.status) {
-      core.error(`HTTP status: ${error.status}`);
+      console.error(`HTTP status: ${error.status}`);
     }
     if (error.response) {
-      core.error(`Response data: ${JSON.stringify(error.response.data)}`);
+      console.error(`Response data: ${JSON.stringify(error.response.data)}`);
     }
     throw error;
   }
 }
 
 async function main() {
-  // Force immediate output using multiple methods
-  process.stdout.write('========================================\n');
-  process.stdout.write('CloudCost GitHub Action - Starting\n');
-  process.stdout.write('========================================\n');
-  process.stdout.write(`[INIT] Node version: ${process.version}\n`);
-  process.stdout.write(`[INIT] Platform: ${process.platform} ${process.arch}\n`);
-  
-  // Use both console.log and core.info to ensure logs appear
   console.log('========================================');
   console.log('CloudCost GitHub Action - Starting');
   console.log('========================================');
-  core.info('========================================');
-  core.info('CloudCost GitHub Action - Starting');
-  core.info('========================================');
   console.log(`[INIT] Node version: ${process.version}`);
-  core.info(`[INIT] Node version: ${process.version}`);
   console.log(`[INIT] Platform: ${process.platform} ${process.arch}`);
-  core.info(`[INIT] Platform: ${process.platform} ${process.arch}`);
   console.log(`[INIT] Working directory: ${process.cwd()}`);
-  core.info(`[INIT] Working directory: ${process.cwd()}`);
   console.log(`[INIT] Process PID: ${process.pid}`);
-  core.info(`[INIT] Process PID: ${process.pid}`);
   console.log(`[INIT] Environment variables:`);
-  core.info(`[INIT] Environment variables:`);
-  const envLog = `  - GITHUB_TOKEN: ${process.env.GITHUB_TOKEN ? `Set (${process.env.GITHUB_TOKEN.length} chars)` : 'NOT SET'}`;
-  console.log(envLog);
-  core.info(envLog);
-  const apiKeyLog = `  - CLOUDCOST_API_KEY: ${process.env.CLOUDCOST_API_KEY ? `Set (${process.env.CLOUDCOST_API_KEY.length} chars)` : 'NOT SET'}`;
-  console.log(apiKeyLog);
-  core.info(apiKeyLog);
-  const appConfigLog = `  - APP_CONFIG: ${process.env.APP_CONFIG || 'NOT SET'}`;
-  console.log(appConfigLog);
-  core.info(appConfigLog);
-  const runnerTempLog = `  - RUNNER_TEMP: ${process.env.RUNNER_TEMP || 'NOT SET'}`;
-  console.log(runnerTempLog);
-  core.info(runnerTempLog);
-  const workspaceLog = `  - GITHUB_WORKSPACE: ${process.env.GITHUB_WORKSPACE || 'NOT SET'}`;
-  console.log(workspaceLog);
-  core.info(workspaceLog);
+  console.log(`  - GITHUB_TOKEN: ${process.env.GITHUB_TOKEN ? `Set (${process.env.GITHUB_TOKEN.length} chars)` : 'NOT SET'}`);
+  console.log(`  - CLOUDCOST_API_KEY: ${process.env.CLOUDCOST_API_KEY ? `Set (${process.env.CLOUDCOST_API_KEY.length} chars)` : 'NOT SET'}`);
+  console.log(`  - APP_CONFIG: ${process.env.APP_CONFIG || 'NOT SET'}`);
+  console.log(`  - RUNNER_TEMP: ${process.env.RUNNER_TEMP || 'NOT SET'}`);
+  console.log(`  - GITHUB_WORKSPACE: ${process.env.GITHUB_WORKSPACE || 'NOT SET'}`);
   
   try {
-    core.info('=== Reading configuration ===');
+    console.log('=== Reading configuration ===');
     const backendUrl = 'https://cloudcost-action-api.vercel.app/';
-    core.info(`[CONFIG] Backend URL: ${backendUrl}`);
     console.log(`[CONFIG] Backend URL: ${backendUrl}`);
-    core.info(`[CONFIG] [BACKEND] All backend requests will be made to: ${backendUrl}`);
-    core.info(`[CONFIG] [BACKEND] The analyzer binary will make pricing API requests to this backend`);
-    core.info(`[CONFIG] [BACKEND] Usage reporting will be sent to: ${backendUrl}/api/v1/usage`);
+    console.log(`[CONFIG] [BACKEND] All backend requests will be made to: ${backendUrl}`);
+    console.log(`[CONFIG] [BACKEND] The analyzer binary will make pricing API requests to this backend`);
+    console.log(`[CONFIG] [BACKEND] Usage reporting will be sent to: ${backendUrl}/api/v1/usage`);
     
     const region = core.getInput('region') || 'us-east-1';
-    core.info(`Region: ${region}`);
+    console.log(`Region: ${region}`);
     
     const usageProfile = core.getInput('usage_profile') || 'small';
-    core.info(`Usage profile: ${usageProfile}`);
+    console.log(`Usage profile: ${usageProfile}`);
     
     const analyzerVersion = core.getInput('analyzer_version') || 'v0.1.0';
-    core.info(`Analyzer version: ${analyzerVersion}`);
+    console.log(`Analyzer version: ${analyzerVersion}`);
     
     const commentTitle =
       core.getInput('comment_title') || 'Cloud Cost Impact';
-    core.info(`Comment title: ${commentTitle}`);
+    console.log(`Comment title: ${commentTitle}`);
     
     const updateExistingInput = core.getInput('update_existing_comment');
     const updateExisting =
       updateExistingInput === '' ? true : updateExistingInput !== 'false';
-    core.info(`Update existing comment: ${updateExisting}`);
+    console.log(`Update existing comment: ${updateExisting}`);
     
     const enableUsageReportingInput = core.getInput('enable_usage_reporting');
     const enableUsageReporting =
       enableUsageReportingInput && enableUsageReportingInput !== 'false';
-    core.info(`Enable usage reporting: ${enableUsageReporting}`);
+    console.log(`Enable usage reporting: ${enableUsageReporting}`);
     
     const githubToken =
       core.getInput('github_token') || process.env.GITHUB_TOKEN;
 
     if (!githubToken) {
-      core.error('✗ GitHub token is missing');
+      console.error('✗ GitHub token is missing');
       core.setFailed(
         'GitHub token is required to post PR comments. Provide github_token input (usually secrets.GITHUB_TOKEN) or set GITHUB_TOKEN env.',
       );
       return;
     }
-    core.info(`✓ GitHub token is set (length: ${githubToken.length} chars)`);
+    console.log(`✓ GitHub token is set (length: ${githubToken.length} chars)`);
 
     const apiKeyInput = core.getInput('api_key');
     const apiKey = apiKeyInput || process.env.CLOUDCOST_API_KEY;
     if (!apiKey) {
-      core.error('✗ API key is missing');
+      console.error('✗ API key is missing');
       core.setFailed(
         'api_key input (or CLOUDCOST_API_KEY env) is required but not set.',
       );
       return;
     }
-    core.info(`✓ API key is set (length: ${apiKey.length} chars)`);
+    console.log(`✓ API key is set (length: ${apiKey.length} chars)`);
 
-    core.info('=== Checking GitHub context ===');
+    console.log('=== Checking GitHub context ===');
     const context = github.context;
-    core.info(`[CONTEXT] Event name: ${context.eventName}`);
-    core.info(`[CONTEXT] Action: ${context.action || 'N/A'}`);
-    core.info(`[CONTEXT] Repository: ${context.repo.owner}/${context.repo.repo}`);
-    core.info(`[CONTEXT] Workflow: ${context.workflow || 'N/A'}`);
-    core.info(`[CONTEXT] Run ID: ${context.runId}`);
-    core.info(`[CONTEXT] SHA: ${context.sha}`);
-    core.info(`[CONTEXT] Ref: ${context.ref}`);
-    core.info(`[CONTEXT] Actor: ${context.actor || 'N/A'}`);
-    core.info(`[CONTEXT] Payload keys: ${Object.keys(context.payload || {}).join(', ')}`);
+    console.log(`[CONTEXT] Event name: ${context.eventName}`);
+    console.log(`[CONTEXT] Action: ${context.action || 'N/A'}`);
+    console.log(`[CONTEXT] Repository: ${context.repo.owner}/${context.repo.repo}`);
+    console.log(`[CONTEXT] Workflow: ${context.workflow || 'N/A'}`);
+    console.log(`[CONTEXT] Run ID: ${context.runId}`);
+    console.log(`[CONTEXT] SHA: ${context.sha}`);
+    console.log(`[CONTEXT] Ref: ${context.ref}`);
+    console.log(`[CONTEXT] Actor: ${context.actor || 'N/A'}`);
+    console.log(`[CONTEXT] Payload keys: ${Object.keys(context.payload || {}).join(', ')}`);
     
     const pull = context.payload.pull_request;
     if (!pull) {
-      core.error('[CONTEXT] ✗ No pull_request found in context');
-      core.error(`[CONTEXT] Available payload keys: ${Object.keys(context.payload || {}).join(', ')}`);
-      core.error(`[CONTEXT] Payload structure: ${JSON.stringify(context.payload, null, 2).substring(0, 1000)}`);
+      console.error('[CONTEXT] ✗ No pull_request found in context');
+      console.error(`[CONTEXT] Available payload keys: ${Object.keys(context.payload || {}).join(', ')}`);
+      console.error(`[CONTEXT] Payload structure: ${JSON.stringify(context.payload, null, 2).substring(0, 1000)}`);
       core.setFailed('This action must be run on a pull_request event.');
       return;
     }
     
-    core.info(`[CONTEXT] ✓ Pull request found: #${pull.number}`);
-    core.info(`[CONTEXT] PR state: ${pull.state || 'N/A'}`);
-    core.info(`[CONTEXT] PR title: ${pull.title || 'N/A'}`);
-    core.info(`[CONTEXT] PR head ref: ${pull.head?.ref || 'N/A'}`);
-    core.info(`[CONTEXT] PR base ref: ${pull.base?.ref || 'N/A'}`);
+    console.log(`[CONTEXT] ✓ Pull request found: #${pull.number}`);
+    console.log(`[CONTEXT] PR state: ${pull.state || 'N/A'}`);
+    console.log(`[CONTEXT] PR title: ${pull.title || 'N/A'}`);
+    console.log(`[CONTEXT] PR head ref: ${pull.head?.ref || 'N/A'}`);
+    console.log(`[CONTEXT] PR base ref: ${pull.base?.ref || 'N/A'}`);
     const headSha = pull.head.sha;
     const baseSha = pull.base.sha;
-    core.info(`[CONTEXT] Head SHA: ${headSha}`);
-    core.info(`[CONTEXT] Base SHA: ${baseSha}`);
+    console.log(`[CONTEXT] Head SHA: ${headSha}`);
+    console.log(`[CONTEXT] Base SHA: ${baseSha}`);
     
     if (!headSha || !baseSha) {
-      core.error(`[CONTEXT] ✗ Missing SHA information`);
-      core.error(`[CONTEXT] Head object: ${JSON.stringify(pull.head)}`);
-      core.error(`[CONTEXT] Base object: ${JSON.stringify(pull.base)}`);
+      console.error(`[CONTEXT] ✗ Missing SHA information`);
+      console.error(`[CONTEXT] Head object: ${JSON.stringify(pull.head)}`);
+      console.error(`[CONTEXT] Base object: ${JSON.stringify(pull.base)}`);
       throw new Error('Pull request is missing head or base SHA information');
     }
 
-    core.info('=== Setting up working directories ===');
+    console.log('=== Setting up working directories ===');
     const tmpDir = process.env.RUNNER_TEMP || os.tmpdir();
     const workDir = process.cwd();
-    core.info(`Temporary directory: ${tmpDir}`);
-    core.info(`Working directory: ${workDir}`);
+    console.log(`Temporary directory: ${tmpDir}`);
+    console.log(`Working directory: ${workDir}`);
     
     const analyzerDir = path.join(tmpDir, 'cloudcost-analyzer');
     const analyzerPath = path.join(analyzerDir, 'analyzer');
     const headJson = path.join(tmpDir, 'cloudcost-head-report.json');
     const baseJson = path.join(tmpDir, 'cloudcost-base-report.json');
     
-    core.info(`Analyzer directory: ${analyzerDir}`);
-    core.info(`Analyzer path: ${analyzerPath}`);
-    core.info(`Head report JSON: ${headJson}`);
-    core.info(`Base report JSON: ${baseJson}`);
+    console.log(`Analyzer directory: ${analyzerDir}`);
+    console.log(`Analyzer path: ${analyzerPath}`);
+    console.log(`Head report JSON: ${headJson}`);
+    console.log(`Base report JSON: ${baseJson}`);
 
-    core.info('Creating analyzer directory...');
+    console.log('Creating analyzer directory...');
     fs.mkdirSync(analyzerDir, { recursive: true });
-    core.info(`✓ Analyzer directory created`);
+    console.log(`✓ Analyzer directory created`);
 
     const analyzerUrl = `https://github.com/odrori1997/cloudcost-analyzer/releases/download/${analyzerVersion}/analyzer`;
-    core.info(`=== Downloading analyzer ===`);
-    core.info(`[DOWNLOAD] Analyzer URL: ${analyzerUrl}`);
-    core.info(`[DOWNLOAD] Target path: ${analyzerPath}`);
-    core.info(`[DOWNLOAD] Analyzer directory exists: ${fs.existsSync(analyzerDir)}`);
+    console.log(`=== Downloading analyzer ===`);
+    console.log(`[DOWNLOAD] Analyzer URL: ${analyzerUrl}`);
+    console.log(`[DOWNLOAD] Target path: ${analyzerPath}`);
+    console.log(`[DOWNLOAD] Analyzer directory exists: ${fs.existsSync(analyzerDir)}`);
     
     if (fs.existsSync(analyzerPath)) {
-      core.info(`[DOWNLOAD] Analyzer already exists, removing old version...`);
+      console.log(`[DOWNLOAD] Analyzer already exists, removing old version...`);
       fs.unlinkSync(analyzerPath);
     }
     
-    core.info(`[DOWNLOAD] Starting download...`);
+    console.log(`[DOWNLOAD] Starting download...`);
     const downloadStartTime = Date.now();
     runCmd(`curl -sSL "${analyzerUrl}" -o "${analyzerPath}"`);
     const downloadDuration = Date.now() - downloadStartTime;
-    core.info(`[DOWNLOAD] Download command completed (took ${downloadDuration}ms)`);
+    console.log(`[DOWNLOAD] Download command completed (took ${downloadDuration}ms)`);
     
     if (fs.existsSync(analyzerPath)) {
       const stats = fs.statSync(analyzerPath);
-      core.info(`[DOWNLOAD] ✓ Analyzer downloaded (size: ${stats.size} bytes)`);
+      console.log(`[DOWNLOAD] ✓ Analyzer downloaded (size: ${stats.size} bytes)`);
       if (stats.size === 0) {
         throw new Error(`Downloaded analyzer file is empty!`);
       }
@@ -490,72 +463,77 @@ async function main() {
       throw new Error(`Analyzer file not found after download: ${analyzerPath}`);
     }
     
-    core.info(`[DOWNLOAD] Making analyzer executable...`);
+    console.log(`[DOWNLOAD] Making analyzer executable...`);
     runCmd(`chmod +x "${analyzerPath}"`);
     const chmodStats = fs.statSync(analyzerPath);
     const isExecutable = (chmodStats.mode & parseInt('111', 8)) !== 0;
     if (isExecutable) {
-      core.info(`[DOWNLOAD] ✓ Analyzer made executable`);
+      console.log(`[DOWNLOAD] ✓ Analyzer made executable`);
     } else {
-      core.warning(`[DOWNLOAD] WARNING: Analyzer may not be executable (mode: ${chmodStats.mode.toString(8)})`);
+      console.warn(`[DOWNLOAD] WARNING: Analyzer may not be executable (mode: ${chmodStats.mode.toString(8)})`);
     }
 
     const startTime = Date.now();
-    core.info(`Start time: ${new Date(startTime).toISOString()}`);
+    console.log(`Start time: ${new Date(startTime).toISOString()}`);
 
     // Head analysis
-    core.info('=== Starting head commit analysis ===');
+    console.log('=== Starting head commit analysis ===');
     core.startGroup('Analyze head commit');
-    core.info(`[HEAD] Current git SHA: ${headSha}`);
-    core.info(`[HEAD] Verifying git state...`);
+    console.log(`[HEAD] Current git SHA: ${headSha}`);
+    console.log(`[HEAD] Verifying git state...`);
     try {
       const gitStatus = runCmd('git status --short', { cwd: workDir, encoding: 'utf8' });
-      core.info(`[HEAD] Git status: ${gitStatus || '(clean)'}`);
+      console.log(`[HEAD] Git status: ${gitStatus || '(clean)'}`);
     } catch (e) {
-      core.warning(`[HEAD] Could not get git status: ${e.message}`);
+      console.warn(`[HEAD] Could not get git status: ${e.message}`);
     }
     
-    core.info(`[HEAD] Checking if cdk.out exists before synth...`);
+    console.log(`[HEAD] Checking if cdk.out exists before synth...`);
     const cdkOutPath = path.join(workDir, 'cdk.out');
     if (fs.existsSync(cdkOutPath)) {
-      core.info(`[HEAD] cdk.out exists, listing contents...`);
+      console.log(`[HEAD] cdk.out exists, listing contents...`);
       try {
         const cdkOutContents = fs.readdirSync(cdkOutPath);
-        core.info(`[HEAD] cdk.out contains: ${cdkOutContents.join(', ')}`);
+        console.log(`[HEAD] cdk.out contains: ${cdkOutContents.join(', ')}`);
       } catch (e) {
-        core.warning(`[HEAD] Could not list cdk.out: ${e.message}`);
+        console.warn(`[HEAD] Could not list cdk.out: ${e.message}`);
       }
     } else {
-      core.info(`[HEAD] cdk.out does not exist yet (will be created by synth)`);
+      console.log(`[HEAD] cdk.out does not exist yet (will be created by synth)`);
     }
     
-    core.info('[HEAD] Running CDK synth for head commit...');
+    console.log('[HEAD] Running CDK synth for head commit...');
     const synthStartTime = Date.now();
-    runCmd('npx cdk synth --quiet', { cwd: workDir });
-    const synthDuration = Date.now() - synthStartTime;
-    core.info(`[HEAD] ✓ CDK synth completed for head (took ${synthDuration}ms)`);
+    try {
+      runCmd('npx cdk synth --quiet', { cwd: workDir });
+      const synthDuration = Date.now() - synthStartTime;
+      console.log(`[HEAD] ✓ CDK synth completed for head (took ${synthDuration}ms)`);
+    } catch (error) {
+      console.error(`[HEAD] ✗ CDK synth failed: ${error.message}`);
+      throw error;
+    }
     
-    core.info(`[HEAD] Verifying cdk.out after synth...`);
+    console.log(`[HEAD] Verifying cdk.out after synth...`);
     if (fs.existsSync(cdkOutPath)) {
       try {
         const cdkOutContents = fs.readdirSync(cdkOutPath);
-        core.info(`[HEAD] cdk.out now contains: ${cdkOutContents.join(', ')}`);
+        console.log(`[HEAD] cdk.out now contains: ${cdkOutContents.join(', ')}`);
       } catch (e) {
-        core.warning(`[HEAD] Could not list cdk.out after synth: ${e.message}`);
+        console.warn(`[HEAD] Could not list cdk.out after synth: ${e.message}`);
       }
     } else {
-      core.error(`[HEAD] ✗ cdk.out still does not exist after synth!`);
+      console.error(`[HEAD] ✗ cdk.out still does not exist after synth!`);
       throw new Error('CDK synth did not create cdk.out directory');
     }
     
-    core.info('[HEAD] Verifying analyzer binary exists...');
+    console.log('[HEAD] Verifying analyzer binary exists...');
     if (!fs.existsSync(analyzerPath)) {
       throw new Error(`Analyzer binary not found at: ${analyzerPath}`);
     }
     const analyzerStats = fs.statSync(analyzerPath);
-    core.info(`[HEAD] Analyzer binary exists (${analyzerStats.size} bytes, executable: ${(analyzerStats.mode & parseInt('111', 8)) !== 0})`);
+    console.log(`[HEAD] Analyzer binary exists (${analyzerStats.size} bytes, executable: ${(analyzerStats.mode & parseInt('111', 8)) !== 0})`);
     
-    core.info('[HEAD] Running analyzer for head commit...');
+    console.log('[HEAD] Running analyzer for head commit...');
     const headAnalyzerCmd = `"${analyzerPath}" ` +
       `--cdk-out ./cdk.out ` +
       `--region ${region} ` +
@@ -564,105 +542,105 @@ async function main() {
       `--out-md "${path.join(tmpDir, 'cloudcost-head-report.md')}" ` +
       `--api-key "${apiKey}" ` +
       `--backend-url "${backendUrl}"`;
-    core.info(`[HEAD] Analyzer command (sanitized): ${headAnalyzerCmd.replace(apiKey, '***')}`);
-    core.info(`[HEAD] Backend URL: ${backendUrl}`);
-    core.info(`[HEAD] Expected output JSON: ${headJson}`);
+    console.log(`[HEAD] Analyzer command (sanitized): ${headAnalyzerCmd.replace(apiKey, '***')}`);
+    console.log(`[HEAD] Backend URL: ${backendUrl}`);
+    console.log(`[HEAD] Expected output JSON: ${headJson}`);
     
     // Log what backend requests the analyzer will make
-    core.info(`[HEAD] [BACKEND] Analyzer will make requests to backend:`);
-    core.info(`[HEAD] [BACKEND]   - Base URL: ${backendUrl}`);
-    core.info(`[HEAD] [BACKEND]   - API Key: Set (${apiKey.length} chars, starts with: ${apiKey.substring(0, 4)}...)`);
-    core.info(`[HEAD] [BACKEND]   - Region: ${region}`);
-    core.info(`[HEAD] [BACKEND]   - Usage Profile: ${usageProfile}`);
-    core.info(`[HEAD] [BACKEND]   - The analyzer will query pricing data from the backend API`);
-    core.info(`[HEAD] [BACKEND]   - Watch for analyzer's HTTP request logs above`);
+    console.log(`[HEAD] [BACKEND] Analyzer will make requests to backend:`);
+    console.log(`[HEAD] [BACKEND]   - Base URL: ${backendUrl}`);
+    console.log(`[HEAD] [BACKEND]   - API Key: Set (${apiKey.length} chars, starts with: ${apiKey.substring(0, 4)}...)`);
+    console.log(`[HEAD] [BACKEND]   - Region: ${region}`);
+    console.log(`[HEAD] [BACKEND]   - Usage Profile: ${usageProfile}`);
+    console.log(`[HEAD] [BACKEND]   - The analyzer will query pricing data from the backend API`);
+    console.log(`[HEAD] [BACKEND]   - Watch for analyzer's HTTP request logs above`);
     
     const analyzerStartTime = Date.now();
-    core.info(`[HEAD] [BACKEND] Starting analyzer execution (will make backend requests)...`);
+    console.log(`[HEAD] [BACKEND] Starting analyzer execution (will make backend requests)...`);
     runCmd(headAnalyzerCmd, { cwd: workDir });
     const analyzerDuration = Date.now() - analyzerStartTime;
-    core.info(`[HEAD] Analyzer command completed (took ${analyzerDuration}ms)`);
-    core.info(`[HEAD] [BACKEND] Analyzer execution finished - check above for any HTTP request logs from the analyzer`);
+    console.log(`[HEAD] Analyzer command completed (took ${analyzerDuration}ms)`);
+    console.log(`[HEAD] [BACKEND] Analyzer execution finished - check above for any HTTP request logs from the analyzer`);
     
-    core.info(`[HEAD] Checking for head report file...`);
+    console.log(`[HEAD] Checking for head report file...`);
     if (fs.existsSync(headJson)) {
       const stats = fs.statSync(headJson);
-      core.info(`[HEAD] ✓ Head report generated (size: ${stats.size} bytes)`);
+      console.log(`[HEAD] ✓ Head report generated (size: ${stats.size} bytes)`);
       if (stats.size === 0) {
-        core.error(`[HEAD] ✗ Head report file is empty!`);
+        console.error(`[HEAD] ✗ Head report file is empty!`);
         throw new Error(`Head report file is empty: ${headJson}`);
       }
       // Log first few lines of the report for debugging
       try {
         const reportPreview = fs.readFileSync(headJson, 'utf8').substring(0, 500);
-        core.info(`[HEAD] Report preview: ${reportPreview}...`);
+        console.log(`[HEAD] Report preview: ${reportPreview}...`);
       } catch (e) {
-        core.warning(`[HEAD] Could not read report preview: ${e.message}`);
+        console.warn(`[HEAD] Could not read report preview: ${e.message}`);
       }
     } else {
-      core.error(`[HEAD] ✗ Head report file not found: ${headJson}`);
-      core.error(`[HEAD] Listing temp directory contents...`);
+      console.error(`[HEAD] ✗ Head report file not found: ${headJson}`);
+      console.error(`[HEAD] Listing temp directory contents...`);
       try {
         const tempContents = fs.readdirSync(tmpDir);
-        core.error(`[HEAD] Temp directory contains: ${tempContents.join(', ')}`);
+        console.error(`[HEAD] Temp directory contains: ${tempContents.join(', ')}`);
       } catch (e) {
-        core.error(`[HEAD] Could not list temp directory: ${e.message}`);
+        console.error(`[HEAD] Could not list temp directory: ${e.message}`);
       }
       throw new Error(`Head report file not found: ${headJson}`);
     }
     core.endGroup();
 
     // Base analysis
-    core.info('=== Starting base commit analysis ===');
+    console.log('=== Starting base commit analysis ===');
     core.startGroup('Analyze base commit');
-    core.info(`[BASE] Checking out base SHA: ${baseSha}`);
+    console.log(`[BASE] Checking out base SHA: ${baseSha}`);
     const checkoutStartTime = Date.now();
     runCmd(`git checkout ${baseSha}`, { cwd: workDir });
     const checkoutDuration = Date.now() - checkoutStartTime;
-    core.info(`[BASE] ✓ Checked out base commit (took ${checkoutDuration}ms)`);
+    console.log(`[BASE] ✓ Checked out base commit (took ${checkoutDuration}ms)`);
     
-    core.info(`[BASE] Verifying git state after checkout...`);
+    console.log(`[BASE] Verifying git state after checkout...`);
     try {
       const currentSha = runCmd('git rev-parse HEAD', { cwd: workDir, encoding: 'utf8' }).trim();
-      core.info(`[BASE] Current HEAD SHA: ${currentSha}`);
+      console.log(`[BASE] Current HEAD SHA: ${currentSha}`);
       if (currentSha !== baseSha) {
-        core.warning(`[BASE] WARNING: Current SHA (${currentSha}) does not match expected base SHA (${baseSha})`);
+        console.warn(`[BASE] WARNING: Current SHA (${currentSha}) does not match expected base SHA (${baseSha})`);
       }
     } catch (e) {
-      core.warning(`[BASE] Could not verify git SHA: ${e.message}`);
+      console.warn(`[BASE] Could not verify git SHA: ${e.message}`);
     }
     
-    core.info(`[BASE] Cleaning up old cdk.out if exists...`);
+    console.log(`[BASE] Cleaning up old cdk.out if exists...`);
     const baseCdkOutPath = path.join(workDir, 'cdk.out');
     if (fs.existsSync(baseCdkOutPath)) {
       try {
         fs.rmSync(baseCdkOutPath, { recursive: true, force: true });
-        core.info(`[BASE] Removed old cdk.out`);
+        console.log(`[BASE] Removed old cdk.out`);
       } catch (e) {
-        core.warning(`[BASE] Could not remove old cdk.out: ${e.message}`);
+        console.warn(`[BASE] Could not remove old cdk.out: ${e.message}`);
       }
     }
     
-    core.info('[BASE] Running CDK synth for base commit...');
+    console.log('[BASE] Running CDK synth for base commit...');
     const baseSynthStartTime = Date.now();
     runCmd('npx cdk synth --quiet', { cwd: workDir });
     const baseSynthDuration = Date.now() - baseSynthStartTime;
-    core.info(`[BASE] ✓ CDK synth completed for base (took ${baseSynthDuration}ms)`);
+    console.log(`[BASE] ✓ CDK synth completed for base (took ${baseSynthDuration}ms)`);
     
-    core.info(`[BASE] Verifying cdk.out after synth...`);
+    console.log(`[BASE] Verifying cdk.out after synth...`);
     if (fs.existsSync(baseCdkOutPath)) {
       try {
         const cdkOutContents = fs.readdirSync(baseCdkOutPath);
-        core.info(`[BASE] cdk.out contains: ${cdkOutContents.join(', ')}`);
+        console.log(`[BASE] cdk.out contains: ${cdkOutContents.join(', ')}`);
       } catch (e) {
-        core.warning(`[BASE] Could not list cdk.out after synth: ${e.message}`);
+        console.warn(`[BASE] Could not list cdk.out after synth: ${e.message}`);
       }
     } else {
-      core.error(`[BASE] ✗ cdk.out does not exist after synth!`);
+      console.error(`[BASE] ✗ cdk.out does not exist after synth!`);
       throw new Error('CDK synth did not create cdk.out directory for base');
     }
     
-    core.info('[BASE] Running analyzer for base commit...');
+    console.log('[BASE] Running analyzer for base commit...');
     const baseAnalyzerCmd = `"${analyzerPath}" ` +
       `--cdk-out ./cdk.out ` +
       `--region ${region} ` +
@@ -671,107 +649,107 @@ async function main() {
       `--out-md "${path.join(tmpDir, 'cloudcost-base-report.md')}" ` +
       `--api-key "${apiKey}" ` +
       `--backend-url "${backendUrl}"`;
-    core.info(`[BASE] Analyzer command (sanitized): ${baseAnalyzerCmd.replace(apiKey, '***')}`);
-    core.info(`[BASE] Backend URL: ${backendUrl}`);
-    core.info(`[BASE] Expected output JSON: ${baseJson}`);
+    console.log(`[BASE] Analyzer command (sanitized): ${baseAnalyzerCmd.replace(apiKey, '***')}`);
+    console.log(`[BASE] Backend URL: ${backendUrl}`);
+    console.log(`[BASE] Expected output JSON: ${baseJson}`);
     
     // Log what backend requests the analyzer will make
-    core.info(`[BASE] [BACKEND] Analyzer will make requests to backend:`);
-    core.info(`[BASE] [BACKEND]   - Base URL: ${backendUrl}`);
-    core.info(`[BASE] [BACKEND]   - API Key: Set (${apiKey.length} chars, starts with: ${apiKey.substring(0, 4)}...)`);
-    core.info(`[BASE] [BACKEND]   - Region: ${region}`);
-    core.info(`[BASE] [BACKEND]   - Usage Profile: ${usageProfile}`);
-    core.info(`[BASE] [BACKEND]   - The analyzer will query pricing data from the backend API`);
-    core.info(`[BASE] [BACKEND]   - Watch for analyzer's HTTP request logs above`);
+    console.log(`[BASE] [BACKEND] Analyzer will make requests to backend:`);
+    console.log(`[BASE] [BACKEND]   - Base URL: ${backendUrl}`);
+    console.log(`[BASE] [BACKEND]   - API Key: Set (${apiKey.length} chars, starts with: ${apiKey.substring(0, 4)}...)`);
+    console.log(`[BASE] [BACKEND]   - Region: ${region}`);
+    console.log(`[BASE] [BACKEND]   - Usage Profile: ${usageProfile}`);
+    console.log(`[BASE] [BACKEND]   - The analyzer will query pricing data from the backend API`);
+    console.log(`[BASE] [BACKEND]   - Watch for analyzer's HTTP request logs above`);
     
     const baseAnalyzerStartTime = Date.now();
-    core.info(`[BASE] [BACKEND] Starting analyzer execution (will make backend requests)...`);
+    console.log(`[BASE] [BACKEND] Starting analyzer execution (will make backend requests)...`);
     runCmd(baseAnalyzerCmd, { cwd: workDir });
     const baseAnalyzerDuration = Date.now() - baseAnalyzerStartTime;
-    core.info(`[BASE] Analyzer command completed (took ${baseAnalyzerDuration}ms)`);
-    core.info(`[BASE] [BACKEND] Analyzer execution finished - check above for any HTTP request logs from the analyzer`);
+    console.log(`[BASE] Analyzer command completed (took ${baseAnalyzerDuration}ms)`);
+    console.log(`[BASE] [BACKEND] Analyzer execution finished - check above for any HTTP request logs from the analyzer`);
     
-    core.info(`[BASE] Checking for base report file...`);
+    console.log(`[BASE] Checking for base report file...`);
     if (fs.existsSync(baseJson)) {
       const stats = fs.statSync(baseJson);
-      core.info(`[BASE] ✓ Base report generated (size: ${stats.size} bytes)`);
+      console.log(`[BASE] ✓ Base report generated (size: ${stats.size} bytes)`);
       if (stats.size === 0) {
-        core.error(`[BASE] ✗ Base report file is empty!`);
+        console.error(`[BASE] ✗ Base report file is empty!`);
         throw new Error(`Base report file is empty: ${baseJson}`);
       }
       // Log first few lines of the report for debugging
       try {
         const reportPreview = fs.readFileSync(baseJson, 'utf8').substring(0, 500);
-        core.info(`[BASE] Report preview: ${reportPreview}...`);
+        console.log(`[BASE] Report preview: ${reportPreview}...`);
       } catch (e) {
-        core.warning(`[BASE] Could not read report preview: ${e.message}`);
+        console.warn(`[BASE] Could not read report preview: ${e.message}`);
       }
     } else {
-      core.error(`[BASE] ✗ Base report file not found: ${baseJson}`);
-      core.error(`[BASE] Listing temp directory contents...`);
+      console.error(`[BASE] ✗ Base report file not found: ${baseJson}`);
+      console.error(`[BASE] Listing temp directory contents...`);
       try {
         const tempContents = fs.readdirSync(tmpDir);
-        core.error(`[BASE] Temp directory contains: ${tempContents.join(', ')}`);
+        console.error(`[BASE] Temp directory contains: ${tempContents.join(', ')}`);
       } catch (e) {
-        core.error(`[BASE] Could not list temp directory: ${e.message}`);
+        console.error(`[BASE] Could not list temp directory: ${e.message}`);
       }
       throw new Error(`Base report file not found: ${baseJson}`);
     }
     
-    core.info(`Checking out head SHA: ${headSha}`);
+    console.log(`Checking out head SHA: ${headSha}`);
     runCmd(`git checkout ${headSha}`, { cwd: workDir });
-    core.info('✓ Checked out head commit');
+    console.log('✓ Checked out head commit');
     core.endGroup();
 
-    core.info('=== Computing cost delta ===');
+    console.log('=== Computing cost delta ===');
     const baseReport = readJson(baseJson);
-    core.info(`Base report total: $${baseReport.grand_total_usd || 'N/A'}`);
-    core.info(`Base report stacks: ${(baseReport.stacks || []).length}`);
+    console.log(`Base report total: $${baseReport.grand_total_usd || 'N/A'}`);
+    console.log(`Base report stacks: ${(baseReport.stacks || []).length}`);
     
     const headReport = readJson(headJson);
-    core.info(`Head report total: $${headReport.grand_total_usd || 'N/A'}`);
-    core.info(`Head report stacks: ${(headReport.stacks || []).length}`);
+    console.log(`Head report total: $${headReport.grand_total_usd || 'N/A'}`);
+    console.log(`Head report stacks: ${(headReport.stacks || []).length}`);
     
     const delta = computeDelta(baseReport, headReport);
-    core.info(`Delta computed:`);
-    core.info(`  Base total: $${delta.total.base.toFixed(2)}`);
-    core.info(`  Head total: $${delta.total.head.toFixed(2)}`);
-    core.info(`  Delta: $${delta.total.diff.toFixed(2)}`);
-    core.info(`  Stacks with changes: ${delta.stacks.length}`);
+    console.log(`Delta computed:`);
+    console.log(`  Base total: $${delta.total.base.toFixed(2)}`);
+    console.log(`  Head total: $${delta.total.head.toFixed(2)}`);
+    console.log(`  Delta: $${delta.total.diff.toFixed(2)}`);
+    console.log(`  Stacks with changes: ${delta.stacks.length}`);
     
     const markdown = renderMarkdown(delta, commentTitle);
-    core.info(`Markdown generated (length: ${markdown.length} chars)`);
+    console.log(`Markdown generated (length: ${markdown.length} chars)`);
 
-    core.info('=== Setting action outputs ===');
+    console.log('=== Setting action outputs ===');
     core.setOutput('delta-json', JSON.stringify(delta));
     core.setOutput('delta-md', markdown);
     core.setOutput('head-total', delta.total.head);
     core.setOutput('base-total', delta.total.base);
     core.setOutput('delta-total', delta.total.diff);
-    core.info('✓ Action outputs set');
+    console.log('✓ Action outputs set');
 
-    core.info('=== Posting PR comment ===');
-    core.info(`[PR] Creating Octokit client...`);
+    console.log('=== Posting PR comment ===');
+    console.log(`[PR] Creating Octokit client...`);
     const octokit = github.getOctokit(githubToken);
-    core.info(`[PR] ✓ Octokit client created`);
-    core.info(`[PR] Markdown length: ${markdown.length} chars`);
-    core.info(`[PR] Update existing: ${updateExisting}`);
-    core.info(`[PR] Comment title: ${commentTitle}`);
+    console.log(`[PR] ✓ Octokit client created`);
+    console.log(`[PR] Markdown length: ${markdown.length} chars`);
+    console.log(`[PR] Update existing: ${updateExisting}`);
+    console.log(`[PR] Comment title: ${commentTitle}`);
     
     const commentStartTime = Date.now();
     await upsertPrComment(octokit, markdown, updateExisting, commentTitle);
     const commentDuration = Date.now() - commentStartTime;
-    core.info(`[PR] ✓ PR comment posted successfully (took ${commentDuration}ms)`);
+    console.log(`[PR] ✓ PR comment posted successfully (took ${commentDuration}ms)`);
 
     if (enableUsageReporting) {
       const durationMs = Date.now() - startTime;
-      core.info(`=== Sending usage record ===`);
-      core.info(`Total duration: ${durationMs}ms (${(durationMs / 1000).toFixed(2)}s)`);
+      console.log(`=== Sending usage record ===`);
+      console.log(`Total duration: ${durationMs}ms (${(durationMs / 1000).toFixed(2)}s)`);
       
       try {
         core.startGroup('Send usage record');
         const usageUrl = `${backendUrl.replace(/\/$/, '')}/api/v1/usage`;
-        core.info(`Usage URL: ${usageUrl}`);
+        console.log(`Usage URL: ${usageUrl}`);
         
         const usagePayload = {
           repo: context.repo.owner + '/' + context.repo.repo,
@@ -782,19 +760,19 @@ async function main() {
           base_total: delta.total.base,
           delta_total: delta.total.diff,
         };
-        core.info(`Usage payload: ${JSON.stringify(usagePayload, null, 2)}`);
+        console.log(`Usage payload: ${JSON.stringify(usagePayload, null, 2)}`);
         
-        core.info(`[USAGE] [BACKEND] Preparing to send POST request to backend...`);
-        core.info(`[USAGE] [BACKEND] Request URL: ${usageUrl}`);
-        core.info(`[USAGE] [BACKEND] Request method: POST`);
-        core.info(`[USAGE] [BACKEND] Request headers:`);
-        core.info(`[USAGE] [BACKEND]   - Content-Type: application/json`);
-        core.info(`[USAGE] [BACKEND]   - Authorization: Bearer *** (${apiKey.length} chars)`);
-        core.info(`[USAGE] [BACKEND] Request payload: ${JSON.stringify(usagePayload, null, 2)}`);
-        core.info(`[USAGE] [BACKEND] Payload size: ${JSON.stringify(usagePayload).length} bytes`);
+        console.log(`[USAGE] [BACKEND] Preparing to send POST request to backend...`);
+        console.log(`[USAGE] [BACKEND] Request URL: ${usageUrl}`);
+        console.log(`[USAGE] [BACKEND] Request method: POST`);
+        console.log(`[USAGE] [BACKEND] Request headers:`);
+        console.log(`[USAGE] [BACKEND]   - Content-Type: application/json`);
+        console.log(`[USAGE] [BACKEND]   - Authorization: Bearer *** (${apiKey.length} chars)`);
+        console.log(`[USAGE] [BACKEND] Request payload: ${JSON.stringify(usagePayload, null, 2)}`);
+        console.log(`[USAGE] [BACKEND] Payload size: ${JSON.stringify(usagePayload).length} bytes`);
         
         const fetchStartTime = Date.now();
-        core.info(`[USAGE] [BACKEND] Sending POST request to ${usageUrl}...`);
+        console.log(`[USAGE] [BACKEND] Sending POST request to ${usageUrl}...`);
         console.log(`[USAGE] [BACKEND] Sending POST request to ${usageUrl}...`);
         
         let response;
@@ -807,7 +785,7 @@ async function main() {
             },
             body: JSON.stringify(usagePayload),
           };
-          core.info(`[USAGE] [BACKEND] Request options: ${JSON.stringify({...requestOptions, headers: {...requestOptions.headers, Authorization: 'Bearer ***'}}, null, 2)}`);
+          console.log(`[USAGE] [BACKEND] Request options: ${JSON.stringify({...requestOptions, headers: {...requestOptions.headers, Authorization: 'Bearer ***'}}, null, 2)}`);
           console.log(`[USAGE] [BACKEND] Making fetch request...`);
           
           response = await fetch(usageUrl, requestOptions);
@@ -821,49 +799,49 @@ async function main() {
             cause: fetchError.cause,
             stack: fetchError.stack?.split('\n').slice(0, 5).join('\n'),
           };
-          core.error(`[USAGE] [BACKEND] ✗ Fetch request failed`);
-          core.error(`[USAGE] [BACKEND] Error message: ${fetchError.message}`);
-          core.error(`[USAGE] [BACKEND] Error type: ${fetchError.constructor.name}`);
-          core.error(`[USAGE] [BACKEND] Error name: ${fetchError.name || 'N/A'}`);
+          console.error(`[USAGE] [BACKEND] ✗ Fetch request failed`);
+          console.error(`[USAGE] [BACKEND] Error message: ${fetchError.message}`);
+          console.error(`[USAGE] [BACKEND] Error type: ${fetchError.constructor.name}`);
+          console.error(`[USAGE] [BACKEND] Error name: ${fetchError.name || 'N/A'}`);
           console.error(`[USAGE] [BACKEND] Fetch error:`, errorDetails);
           if (fetchError.cause) {
-            core.error(`[USAGE] [BACKEND] Error cause: ${JSON.stringify(fetchError.cause)}`);
+            console.error(`[USAGE] [BACKEND] Error cause: ${JSON.stringify(fetchError.cause)}`);
           }
           if (fetchError.code) {
-            core.error(`[USAGE] [BACKEND] Error code: ${fetchError.code}`);
+            console.error(`[USAGE] [BACKEND] Error code: ${fetchError.code}`);
           }
           if (fetchError.errno) {
-            core.error(`[USAGE] [BACKEND] Error errno: ${fetchError.errno}`);
+            console.error(`[USAGE] [BACKEND] Error errno: ${fetchError.errno}`);
           }
           throw fetchError;
         }
         
         const fetchDuration = Date.now() - fetchStartTime;
-        core.info(`[USAGE] [BACKEND] Request completed (took ${fetchDuration}ms)`);
+        console.log(`[USAGE] [BACKEND] Request completed (took ${fetchDuration}ms)`);
         console.log(`[USAGE] [BACKEND] Request duration: ${fetchDuration}ms`);
-        core.info(`[USAGE] [BACKEND] Response status: ${response.status} ${response.statusText}`);
-        core.info(`[USAGE] [BACKEND] Response ok: ${response.ok}`);
-        core.info(`[USAGE] [BACKEND] Response redirected: ${response.redirected}`);
-        core.info(`[USAGE] [BACKEND] Response type: ${response.type}`);
-        core.info(`[USAGE] [BACKEND] Response URL: ${response.url}`);
+        console.log(`[USAGE] [BACKEND] Response status: ${response.status} ${response.statusText}`);
+        console.log(`[USAGE] [BACKEND] Response ok: ${response.ok}`);
+        console.log(`[USAGE] [BACKEND] Response redirected: ${response.redirected}`);
+        console.log(`[USAGE] [BACKEND] Response type: ${response.type}`);
+        console.log(`[USAGE] [BACKEND] Response URL: ${response.url}`);
         
         const responseHeaders = Object.fromEntries(response.headers.entries());
-        core.info(`[USAGE] [BACKEND] Response headers: ${JSON.stringify(responseHeaders, null, 2)}`);
+        console.log(`[USAGE] [BACKEND] Response headers: ${JSON.stringify(responseHeaders, null, 2)}`);
         console.log(`[USAGE] [BACKEND] Response headers:`, responseHeaders);
         
         const responseText = await response.text();
-        core.info(`[USAGE] [BACKEND] Response body length: ${responseText.length} chars`);
+        console.log(`[USAGE] [BACKEND] Response body length: ${responseText.length} chars`);
         console.log(`[USAGE] [BACKEND] Response body length: ${responseText.length} chars`);
         if (responseText.length > 0) {
           if (responseText.length > 1000) {
-            core.info(`[USAGE] [BACKEND] Response body preview: ${responseText.substring(0, 1000)}...`);
+            console.log(`[USAGE] [BACKEND] Response body preview: ${responseText.substring(0, 1000)}...`);
             console.log(`[USAGE] [BACKEND] Response body preview: ${responseText.substring(0, 1000)}...`);
           } else {
-            core.info(`[USAGE] [BACKEND] Response body: ${responseText}`);
+            console.log(`[USAGE] [BACKEND] Response body: ${responseText}`);
             console.log(`[USAGE] [BACKEND] Response body:`, responseText);
           }
         } else {
-          core.info(`[USAGE] [BACKEND] Response body is empty`);
+          console.log(`[USAGE] [BACKEND] Response body is empty`);
           console.log(`[USAGE] [BACKEND] Response body is empty`);
         }
         
@@ -871,87 +849,75 @@ async function main() {
           throw new Error(`Usage API returned ${response.status}: ${responseText}`);
         }
         
-        core.info('✓ Usage record sent successfully');
+        console.log('✓ Usage record sent successfully');
         core.endGroup();
       } catch (err) {
-        core.error(`✗ Failed to send usage record: ${err.message || String(err)}`);
+        console.error(`✗ Failed to send usage record: ${err.message || String(err)}`);
         if (err.stack) {
-          core.error(`Stack trace: ${err.stack}`);
+          console.error(`Stack trace: ${err.stack}`);
         }
-        core.warning(`Usage reporting failed, but continuing...`);
+        console.warn(`Usage reporting failed, but continuing...`);
       }
     } else {
-      core.info('Usage reporting is disabled, skipping...');
+      console.log('Usage reporting is disabled, skipping...');
     }
     
-    core.info('========================================');
-    core.info('CloudCost GitHub Action - Completed Successfully');
-    core.info('========================================');
+    console.log('========================================');
+    console.log('CloudCost GitHub Action - Completed Successfully');
+    console.log('========================================');
   } catch (error) {
-    core.error('========================================');
-    core.error('CloudCost GitHub Action - Failed');
-    core.error('========================================');
-    core.error(`[ERROR] Error type: ${error.constructor.name}`);
-    core.error(`[ERROR] Error message: ${error.message || String(error)}`);
-    core.error(`[ERROR] Error name: ${error.name || 'N/A'}`);
+    console.error('========================================');
+    console.error('CloudCost GitHub Action - Failed');
+    console.error('========================================');
+    console.error(`[ERROR] Error type: ${error.constructor.name}`);
+    console.error(`[ERROR] Error message: ${error.message || String(error)}`);
+    console.error(`[ERROR] Error name: ${error.name || 'N/A'}`);
     
     if (error.stack) {
-      core.error(`[ERROR] Stack trace:`);
-      core.error(error.stack);
+      console.error(`[ERROR] Stack trace:`);
+      console.error(error.stack);
     }
     
     if (error.status) {
-      core.error(`[ERROR] HTTP status: ${error.status}`);
+      console.error(`[ERROR] HTTP status: ${error.status}`);
     }
     
     if (error.code) {
-      core.error(`[ERROR] Error code: ${error.code}`);
+      console.error(`[ERROR] Error code: ${error.code}`);
     }
     
     if (error.response) {
-      core.error(`[ERROR] Response status: ${error.response.status}`);
-      core.error(`[ERROR] Response data: ${JSON.stringify(error.response.data)}`);
-      core.error(`[ERROR] Response headers: ${JSON.stringify(error.response.headers)}`);
+      console.error(`[ERROR] Response status: ${error.response.status}`);
+      console.error(`[ERROR] Response data: ${JSON.stringify(error.response.data)}`);
+      console.error(`[ERROR] Response headers: ${JSON.stringify(error.response.headers)}`);
     }
     
     if (error.cause) {
-      core.error(`[ERROR] Error cause: ${JSON.stringify(error.cause)}`);
+      console.error(`[ERROR] Error cause: ${JSON.stringify(error.cause)}`);
     }
     
     // Log current state for debugging
-    core.error(`[ERROR] Current working directory: ${process.cwd()}`);
-    core.error(`[ERROR] Node version: ${process.version}`);
-    core.error(`[ERROR] Platform: ${process.platform} ${process.arch}`);
+    console.error(`[ERROR] Current working directory: ${process.cwd()}`);
+    console.error(`[ERROR] Node version: ${process.version}`);
+    console.error(`[ERROR] Platform: ${process.platform} ${process.arch}`);
     
     core.setFailed(error.message || String(error));
   }
 }
 
-// Force immediate output to ensure logs appear
-process.stdout.write('=== CLOUDCOST ACTION STARTING ===\n');
-process.stderr.write('=== CLOUDCOST ACTION STARTING (stderr) ===\n');
-
 // Ensure we catch any errors during startup
 (async () => {
   try {
-    process.stdout.write('[STARTUP] Calling main()...\n');
     console.log('[STARTUP] Calling main()...');
-    core.info('[STARTUP] Calling main()...');
     
     // Await the main function to ensure it completes before the process exits
     await main();
     
-    process.stdout.write('[STARTUP] main() completed successfully\n');
     console.log('[STARTUP] main() completed successfully');
-    core.info('[STARTUP] main() completed successfully');
   } catch (error) {
-    process.stderr.write(`[STARTUP] Error in main(): ${error.message || String(error)}\n`);
-    console.error('[STARTUP] Error in main():', error);
-    core.error(`[STARTUP] Error in main(): ${error.message || String(error)}`);
+    console.error(`[STARTUP] Error in main(): ${error.message || String(error)}`);
     if (error.stack) {
-      process.stderr.write(`[STARTUP] Stack trace: ${error.stack}\n`);
-      console.error('[STARTUP] Stack trace:', error.stack);
-      core.error(`[STARTUP] Stack trace: ${error.stack}`);
+      console.error(`[STARTUP] Stack trace: ${error.stack}`);
     }
     core.setFailed(error.message || String(error));
     process.exit(1);
