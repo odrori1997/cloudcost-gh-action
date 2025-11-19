@@ -121,16 +121,17 @@ runs:
         echo "=========================================="
     
     - name: Checking dist/index.js file
-  run: |
-    echo "Checking dist/index.js file:"
-    echo "  File exists: $(test -f dist/index.js && echo YES || echo NO)"
-    if [ -f dist/index.js ]; then
-      echo "  File size: $(stat -c%s dist/index.js) bytes"
-      echo "  SHA256: $(sha256sum dist/index.js | awk '{print $1}')"
-      echo "  First 200 chars:"
-      head -c 200 dist/index.js || true
-      echo
-    fi
+      shell: bash
+      run: |
+        echo "Checking dist/index.js file:"
+        echo "  File exists: $(test -f dist/index.js && echo YES || echo NO)"
+        if [ -f dist/index.js ]; then
+          echo "  File size: $(stat -c%s dist/index.js) bytes"
+          echo "  SHA256: $(sha256sum dist/index.js | awk '{print $1}')"
+          echo "  First 200 chars:"
+          head -c 200 dist/index.js || true
+          echo
+        fi
 
 
     - name: Run CloudCost analysis
