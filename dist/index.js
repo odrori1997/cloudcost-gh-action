@@ -31931,7 +31931,7 @@ function readJson(filePath) {
   const raw = fs.readFileSync(filePath, 'utf8');
   console.log(`File size: ${raw.length} bytes`);
   const parsed = JSON.parse(raw);
-  console.log(`✓ Successfully parsed JSON from ${filePath}`);
+  console.log(`Successfully parsed JSON from ${filePath}`);
   return parsed;
 }
 
