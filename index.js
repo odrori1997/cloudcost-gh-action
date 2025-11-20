@@ -102,11 +102,13 @@ function readJson(filePath) {
 /**
  * Determines the CDK CLI command to use based on the user's repository.
  * Always uses the latest CDK CLI to ensure compatibility with all CDK library versions.
+ * Uses --no-lookups to prevent AWS API calls during synth (no credentials needed).
  */
 function getCdkSynthCommand(workDir) {
   // Always use latest CDK CLI - it's backward compatible with all CDK library versions
   // and forward compatible (can read newer schemas)
-  return 'npx --yes aws-cdk@latest synth --quiet';
+  // --no-lookups prevents AWS API calls during synth, so no credentials are needed
+  return 'npx --yes aws-cdk@latest synth --quiet --no-lookups';
 }
 
 function computeDelta(baseReport, headReport) {
