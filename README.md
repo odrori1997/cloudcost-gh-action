@@ -69,6 +69,37 @@ That's it! The action automatically:
 2. **Accurate Estimate** - Maps resource deltas to the latest AWS pricing 
 3. **PR Integration** - Posts a single, updated comment with cost breakdown
 
+### CDK synth modes: with or without AWS credentials
+
+CloudCost runs `cdk synth` in **two modes**, depending on whether AWS credentials are available in the job:
+
+- **With AWS credentials (recommended for most CDK apps)**  
+  If the job has standard AWS env vars set (for example via `aws-actions/configure-aws-credentials`), the action runs:
+  ```bash
+  npx --yes aws-cdk@latest synth --quiet
+  ```
+  CDK can perform context lookups (e.g. `Vpc.fromLookup`) against your account as usual.
+
+- **Without AWS credentials (no-creds mode)**  
+  If no AWS credentials are detected, the action runs:
+  ```bash
+  npx --yes aws-cdk@latest synth --quiet --no-lookups
+  ```
+  In this mode **CDK will not call AWS**. Any stacks that use lookups (for example `Vpc.fromLookup`) must have their lookup results already cached in `cdk.context.json`.
+
+  If synth fails in this mode with a “missing context keys” error, you have two options:
+  1. **Commit `cdk.context.json`**  
+     - On a machine with AWS credentials, in your CDK repo run:  
+       ```bash
+       npm ci
+       npx aws-cdk synth
+       ```  
+     - Commit the generated `cdk.context.json` file.  
+     - Re-run the workflow; synth will now use the committed context without calling AWS.
+  2. **Refactor to avoid lookups**  
+     - Replace CDK lookups such as `Vpc.fromLookup` with constructs that don’t need AWS context,  
+       e.g. pass VPC / subnet IDs directly or define the VPC in the CDK app.
+
 ## Configuration Options
 
 The action supports the following inputs:
