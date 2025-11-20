@@ -159,7 +159,7 @@ runs:
         head -c 200 "$GITHUB_ACTION_PATH/dist/index.js" || true
         echo "----------------------------------------"
         echo "Running: node $GITHUB_ACTION_PATH/dist/index.js"
-        node "$GITHUB_ACTION_PATH/dist/index.js" 2>&1 | head -50 || true
+        node "$GITHUB_ACTION_PATH/dist/index.js"
         echo "----------------------------------------"
         echo "CloudCost analysis script completed"
         echo "----------------------------------------"

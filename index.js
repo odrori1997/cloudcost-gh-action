@@ -401,21 +401,52 @@ async function main() {
     
     console.log(`[CONTEXT] ✓ Pull request found: #${pull.number}`);
     console.log(`[CONTEXT] PR state: ${pull.state || 'N/A'}`);
+    
+    // Force flush to ensure output is visible
+    if (process.stdout.flush) process.stdout.flush();
+    if (process.stderr.flush) process.stderr.flush();
+    
     console.log(`[CONTEXT] PR title: ${pull.title || 'N/A'}`);
     console.log(`[CONTEXT] PR head ref: ${pull.head?.ref || 'N/A'}`);
     console.log(`[CONTEXT] PR base ref: ${pull.base?.ref || 'N/A'}`);
+    
+    // Safely extract SHA values with better error handling
+    console.log(`[CONTEXT] Checking pull.head and pull.base objects...`);
+    if (!pull.head) {
+      console.error(`[CONTEXT] ✗ Pull request head object is missing`);
+      console.error(`[CONTEXT] Pull request object keys: ${Object.keys(pull || {}).join(', ')}`);
+      console.error(`[CONTEXT] Pull request object (first 2000 chars): ${JSON.stringify(pull, null, 2).substring(0, 2000)}`);
+      throw new Error('Pull request is missing head information');
+    }
+    
+    if (!pull.base) {
+      console.error(`[CONTEXT] ✗ Pull request base object is missing`);
+      console.error(`[CONTEXT] Pull request object keys: ${Object.keys(pull || {}).join(', ')}`);
+      console.error(`[CONTEXT] Pull request object (first 2000 chars): ${JSON.stringify(pull, null, 2).substring(0, 2000)}`);
+      throw new Error('Pull request is missing base information');
+    }
+    
     const headSha = pull.head.sha;
     const baseSha = pull.base.sha;
-    console.log(`[CONTEXT] Head SHA: ${headSha}`);
-    console.log(`[CONTEXT] Base SHA: ${baseSha}`);
+    console.log(`[CONTEXT] Head SHA: ${headSha || 'MISSING'}`);
+    console.log(`[CONTEXT] Base SHA: ${baseSha || 'MISSING'}`);
+    console.log(`[CONTEXT] Head object keys: ${Object.keys(pull.head || {}).join(', ')}`);
+    console.log(`[CONTEXT] Base object keys: ${Object.keys(pull.base || {}).join(', ')}`);
     
     if (!headSha || !baseSha) {
       console.error(`[CONTEXT] ✗ Missing SHA information`);
-      console.error(`[CONTEXT] Head object: ${JSON.stringify(pull.head)}`);
-      console.error(`[CONTEXT] Base object: ${JSON.stringify(pull.base)}`);
+      console.error(`[CONTEXT] Head object: ${JSON.stringify(pull.head, null, 2)}`);
+      console.error(`[CONTEXT] Base object: ${JSON.stringify(pull.base, null, 2)}`);
+      // Force flush before throwing
+      if (process.stdout.flush) process.stdout.flush();
+      if (process.stderr.flush) process.stderr.flush();
       throw new Error('Pull request is missing head or base SHA information');
     }
-
+    
+    // Force flush to ensure output is visible before continuing
+    if (process.stdout.flush) process.stdout.flush();
+    if (process.stderr.flush) process.stderr.flush();
+    
     console.log('=== Setting up working directories ===');
     const tmpDir = process.env.RUNNER_TEMP || os.tmpdir();
     const workDir = process.cwd();
@@ -905,6 +936,34 @@ async function main() {
   }
 }
 
+// Add unhandled error handlers to catch any errors that escape try-catch blocks
+process.on('unhandledRejection', (reason, promise) => {
+  console.error('========================================');
+  console.error('[UNHANDLED] Unhandled Promise Rejection');
+  console.error('========================================');
+  console.error(`[UNHANDLED] Reason: ${reason}`);
+  console.error(`[UNHANDLED] Promise: ${promise}`);
+  if (reason && typeof reason === 'object' && reason.stack) {
+    console.error(`[UNHANDLED] Stack: ${reason.stack}`);
+  }
+  if (process.stderr.flush) process.stderr.flush();
+  core.setFailed(`Unhandled promise rejection: ${reason}`);
+  process.exit(1);
+});
+
+process.on('uncaughtException', (error) => {
+  console.error('========================================');
+  console.error('[UNHANDLED] Uncaught Exception');
+  console.error('========================================');
+  console.error(`[UNHANDLED] Error: ${error.message || String(error)}`);
+  if (error.stack) {
+    console.error(`[UNHANDLED] Stack: ${error.stack}`);
+  }
+  if (process.stderr.flush) process.stderr.flush();
+  core.setFailed(`Uncaught exception: ${error.message || String(error)}`);
+  process.exit(1);
+});
+
 // Ensure we catch any errors during startup
 (async () => {
   try {
@@ -914,11 +973,17 @@ async function main() {
     await main();
     
     console.log('[STARTUP] main() completed successfully');
+    // Force flush before exit
+    if (process.stdout.flush) process.stdout.flush();
+    if (process.stderr.flush) process.stderr.flush();
   } catch (error) {
     console.error(`[STARTUP] Error in main(): ${error.message || String(error)}`);
     if (error.stack) {
       console.error(`[STARTUP] Stack trace: ${error.stack}`);
     }
+    // Force flush before exit
+    if (process.stdout.flush) process.stdout.flush();
+    if (process.stderr.flush) process.stderr.flush();
     core.setFailed(error.message || String(error));
     process.exit(1);
   }
