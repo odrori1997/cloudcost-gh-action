@@ -536,13 +536,14 @@ async function main() {
     console.log('[HEAD] Running CDK synth for head commit...');
     // Prefer local CDK CLI from user's node_modules if available
     const localCdkPath = path.join(workDir, 'node_modules', '.bin', 'cdk');
-    const cdkCmd = fs.existsSync(localCdkPath) 
-      ? `"${localCdkPath}" synth --quiet`
-      : 'npm exec -- cdk synth --quiet';
+    let cdkCmd;
     if (fs.existsSync(localCdkPath)) {
       console.log('[HEAD] Using local CDK CLI from node_modules/.bin/cdk');
+      cdkCmd = `"${localCdkPath}" synth --quiet`;
     } else {
-      console.log('[HEAD] No local CDK CLI found, using npm exec (will use project-compatible version)');
+      console.log('[HEAD] No local CDK CLI found, using npx with latest aws-cdk to ensure compatibility');
+      // Use npx with explicit latest version to ensure compatibility with newer CDK libraries
+      cdkCmd = 'npx --yes aws-cdk@latest synth --quiet';
     }
     const synthStartTime = Date.now();
     try {
@@ -665,13 +666,14 @@ async function main() {
     console.log('[BASE] Running CDK synth for base commit...');
     // Prefer local CDK CLI from user's node_modules if available
     const baseLocalCdkPath = path.join(workDir, 'node_modules', '.bin', 'cdk');
-    const baseCdkCmd = fs.existsSync(baseLocalCdkPath) 
-      ? `"${baseLocalCdkPath}" synth --quiet`
-      : 'npm exec -- cdk synth --quiet';
+    let baseCdkCmd;
     if (fs.existsSync(baseLocalCdkPath)) {
       console.log('[BASE] Using local CDK CLI from node_modules/.bin/cdk');
+      baseCdkCmd = `"${baseLocalCdkPath}" synth --quiet`;
     } else {
-      console.log('[BASE] No local CDK CLI found, using npm exec (will use project-compatible version)');
+      console.log('[BASE] No local CDK CLI found, using npx with latest aws-cdk to ensure compatibility');
+      // Use npx with explicit latest version to ensure compatibility with newer CDK libraries
+      baseCdkCmd = 'npx --yes aws-cdk@latest synth --quiet';
     }
     const baseSynthStartTime = Date.now();
     runCmd(baseCdkCmd, { cwd: workDir });
