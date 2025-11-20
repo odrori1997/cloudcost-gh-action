@@ -100,7 +100,7 @@ runs:
         echo "Dependencies installed successfully"
         echo "Installing npm dependencies for action..."
         cd "$GITHUB_ACTION_PATH"
-        npm ci --only=prod
+        npm i
         echo "Dependencies installed successfully"
 
     - name: Test log before running analysis
