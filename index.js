@@ -99,6 +99,16 @@ function readJson(filePath) {
   return parsed;
 }
 
+/**
+ * Determines the CDK CLI command to use based on the user's repository.
+ * Always uses the latest CDK CLI to ensure compatibility with all CDK library versions.
+ */
+function getCdkSynthCommand(workDir) {
+  // Always use latest CDK CLI - it's backward compatible with all CDK library versions
+  // and forward compatible (can read newer schemas)
+  return 'npx --yes aws-cdk@latest synth --quiet';
+}
+
 function computeDelta(baseReport, headReport) {
   function indexReport(report) {
     const stacks = new Map();
@@ -534,17 +544,7 @@ async function main() {
     }
     
     console.log('[HEAD] Running CDK synth for head commit...');
-    // Prefer local CDK CLI from user's node_modules if available
-    const localCdkPath = path.join(workDir, 'node_modules', '.bin', 'cdk');
-    let cdkCmd;
-    if (fs.existsSync(localCdkPath)) {
-      console.log('[HEAD] Using local CDK CLI from node_modules/.bin/cdk');
-      cdkCmd = `"${localCdkPath}" synth --quiet`;
-    } else {
-      console.log('[HEAD] No local CDK CLI found, using npx with latest aws-cdk to ensure compatibility');
-      // Use npx with explicit latest version to ensure compatibility with newer CDK libraries
-      cdkCmd = 'npx --yes aws-cdk@latest synth --quiet';
-    }
+    const cdkCmd = getCdkSynthCommand(workDir);
     const synthStartTime = Date.now();
     try {
       runCmd(cdkCmd, { cwd: workDir });
@@ -664,21 +664,16 @@ async function main() {
     }
     
     console.log('[BASE] Running CDK synth for base commit...');
-    // Prefer local CDK CLI from user's node_modules if available
-    const baseLocalCdkPath = path.join(workDir, 'node_modules', '.bin', 'cdk');
-    let baseCdkCmd;
-    if (fs.existsSync(baseLocalCdkPath)) {
-      console.log('[BASE] Using local CDK CLI from node_modules/.bin/cdk');
-      baseCdkCmd = `"${baseLocalCdkPath}" synth --quiet`;
-    } else {
-      console.log('[BASE] No local CDK CLI found, using npx with latest aws-cdk to ensure compatibility');
-      // Use npx with explicit latest version to ensure compatibility with newer CDK libraries
-      baseCdkCmd = 'npx --yes aws-cdk@latest synth --quiet';
-    }
+    const baseCdkCmd = getCdkSynthCommand(workDir);
     const baseSynthStartTime = Date.now();
-    runCmd(baseCdkCmd, { cwd: workDir });
-    const baseSynthDuration = Date.now() - baseSynthStartTime;
-    console.log(`[BASE] ✓ CDK synth completed for base (took ${baseSynthDuration}ms)`);
+    try {
+      runCmd(baseCdkCmd, { cwd: workDir });
+      const baseSynthDuration = Date.now() - baseSynthStartTime;
+      console.log(`[BASE] ✓ CDK synth completed for base (took ${baseSynthDuration}ms)`);
+    } catch (error) {
+      console.error(`[BASE] ✗ CDK synth failed: ${error.message}`);
+      throw error;
+    }
     
     console.log(`[BASE] Verifying cdk.out after synth...`);
     if (fs.existsSync(baseCdkOutPath)) {
