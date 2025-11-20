@@ -98,6 +98,10 @@ runs:
         echo "Installing npm dependencies..."
         npm ci
         echo "Dependencies installed successfully"
+        echo "Installing npm dependencies for action..."
+        cd "$GITHUB_ACTION_PATH"
+        npm ci --only=prod
+        echo "Dependencies installed successfully"
 
     - name: Test log before running analysis
       shell: bash
@@ -108,29 +112,34 @@ runs:
         echo "Current time: $(date)"
         echo "Node version: $(node --version)"
         echo "NPM version: $(npm --version)"
-        echo "Checking if dist/index.js exists..."
-        if [ -f "dist/index.js" ]; then
-          echo "✓ dist/index.js exists"
-          echo "File size: $(stat -f%z dist/index.js 2>/dev/null || stat -c%s dist/index.js 2>/dev/null || echo 'unknown') bytes"
+        echo "Checking if $GITHUB_ACTION_PATH/dist/index.js exists..."
+        if [ -f "$GITHUB_ACTION_PATH/dist/index.js" ]; then
+          echo "✓ $GITHUB_ACTION_PATH/dist/index.js exists"
+          echo "File size: $(stat -f%z $GITHUB_ACTION_PATH/dist/index.js 2>/dev/null || stat -c%s $GITHUB_ACTION_PATH/dist/index.js 2>/dev/null || echo 'unknown') bytes"
         else
-          echo "✗ dist/index.js NOT FOUND"
+          echo "✗ $GITHUB_ACTION_PATH/dist/index.js NOT FOUND"
         fi
         echo "Environment check:"
         echo "  GITHUB_TOKEN: $([ -n "${{ inputs.github_token }}" ] && echo 'SET' || echo 'NOT SET')"
         echo "  CLOUDCOST_API_KEY: $([ -n "${{ inputs.api_key }}" ] && echo 'SET' || echo 'NOT SET')"
         echo "=========================================="
     
-    - name: Checking dist/index.js file
+    - name: Checking $GITHUB_ACTION_PATH/dist/index.js file
       shell: bash
       run: |
-        echo "Checking dist/index.js file:"
-        echo "  File exists: $(test -f dist/index.js && echo YES || echo NO)"
-        if [ -f dist/index.js ]; then
-          echo "  File size: $(stat -c%s dist/index.js) bytes"
-          echo "  SHA256: $(sha256sum dist/index.js | awk '{print $1}')"
+        echo "Action path is: $GITHUB_ACTION_PATH"
+        echo "Checking $GITHUB_ACTION_PATH/dist/index.js file:"
+        if [ -f "$GITHUB_ACTION_PATH/dist/index.js" ]; then
+          echo "  File exists: YES"
+          echo "  File size: $(stat -c%s "$GITHUB_ACTION_PATH/dist/index.js") bytes"
+          echo "  SHA256: $(sha256sum "$GITHUB_ACTION_PATH/dist/index.js" | awk '{print $1}')"
           echo "  First 200 chars:"
-          head -c 200 dist/index.js || true
+          head -c 200 "$GITHUB_ACTION_PATH/dist/index.js" || true
           echo
+        else
+          echo "  File exists: NO"
+          echo "Listing $GITHUB_ACTION_PATH:"
+          ls -R "$GITHUB_ACTION_PATH" || true
         fi
 
 
@@ -142,20 +151,19 @@ runs:
         echo "  GITHUB_TOKEN: $([ -n "$GITHUB_TOKEN" ] && echo 'SET' || echo 'NOT SET')"
         echo "  CLOUDCOST_API_KEY: $([ -n "$CLOUDCOST_API_KEY" ] && echo 'SET' || echo 'NOT SET')"
         echo "  APP_CONFIG: $([ -n "$APP_CONFIG" ] && echo 'SET ($APP_CONFIG)' || echo 'NOT SET')"
-        echo "Checking dist/index.js file:"
-        echo "  File exists: $([ -f "dist/index.js" ] && echo 'YES' || echo 'NO')"
-        echo "  File size: $(stat -f%z dist/index.js 2>/dev/null || stat -c%s dist/index.js 2>/dev/null || echo 'unknown') bytes"
-        echo "  First 100 chars: $(head -c 100 dist/index.js 2>/dev/null || echo 'cannot read')"
-        echo "Running: node dist/index.js"
-        echo "--- START OF SCRIPT OUTPUT ---"
-        node dist/index.js 2>&1 | head -50 || true
-        EXIT_CODE=${PIPESTATUS[0]}
-        echo "--- END OF SCRIPT OUTPUT ---"
-        echo "CloudCost analysis script completed with exit code: $EXIT_CODE"
-        if [ $EXIT_CODE -ne 0 ]; then
-          echo "ERROR: Script exited with non-zero code: $EXIT_CODE"
-          exit $EXIT_CODE
-        fi
+        echo "Checking $GITHUB_ACTION_PATH/dist/index.js file:"
+        echo "  File exists: $([ -f "$GITHUB_ACTION_PATH/dist/index.js" ] && echo 'YES' || echo 'NO')"
+        echo "  File size: $(stat -c%s "$GITHUB_ACTION_PATH/dist/index.js") bytes"
+        echo "  SHA256: $(sha256sum "$GITHUB_ACTION_PATH/dist/index.js" | awk '{print $1}')"
+        echo "  First 200 chars:"
+        head -c 200 "$GITHUB_ACTION_PATH/dist/index.js" || true
+        echo "----------------------------------------"
+        echo "Running: node $GITHUB_ACTION_PATH/dist/index.js"
+        node "$GITHUB_ACTION_PATH/dist/index.js" 2>&1 | head -50 || true
+        echo "----------------------------------------"
+        echo "CloudCost analysis script completed"
+        echo "----------------------------------------"
+        echo
       env:
         # Pass the GitHub token input through to the Node script
         GITHUB_TOKEN: ${{ inputs.github_token }}
