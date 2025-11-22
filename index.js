@@ -407,31 +407,33 @@ async function main() {
     console.log(`[CONFIG] [BACKEND] The analyzer binary will make pricing API requests to this backend`);
     console.log(`[CONFIG] [BACKEND] Usage reporting will be sent to: ${backendUrl}/api/v1/usage`);
     
-    const region = core.getInput('region') || 'us-east-1';
+    // Simple: configuration comes only from environment variables
+    const region = process.env.CLOUDCOST_REGION || 'us-east-1';
     console.log(`Region: ${region}`);
     
-    const usageProfile = core.getInput('usage_profile') || 'small';
+    const usageProfile = process.env.CLOUDCOST_USAGE_PROFILE || 'small';
     console.log(`Usage profile: ${usageProfile}`);
     
-    const analyzerVersion = core.getInput('analyzer_version') || 'v0.1.0';
+    const analyzerVersion =
+      process.env.CLOUDCOST_ANALYZER_VERSION || 'v0.1.0';
     console.log(`Analyzer version: ${analyzerVersion}`);
     
     const commentTitle =
-      core.getInput('comment_title') || 'Cloud Cost Impact';
+      process.env.CLOUDCOST_COMMENT_TITLE || 'Cloud Cost Impact';
     console.log(`Comment title: ${commentTitle}`);
     
-    const updateExistingInput = core.getInput('update_existing_comment');
-    const updateExisting =
-      updateExistingInput === '' ? true : updateExistingInput !== 'false';
+    const updateExistingEnv = process.env.CLOUDCOST_UPDATE_EXISTING_COMMENT;
+    const updateExisting = updateExistingEnv
+      ? updateExistingEnv.toLowerCase() !== 'false'
+      : true;
     console.log(`Update existing comment: ${updateExisting}`);
     
-    const enableUsageReportingInput = core.getInput('enable_usage_reporting');
-    const enableUsageReporting =
-      enableUsageReportingInput && enableUsageReportingInput !== 'false';
+    const enableUsageEnv = process.env.CLOUDCOST_ENABLE_USAGE_REPORTING;
+    const enableUsageReporting = !!enableUsageEnv &&
+      enableUsageEnv.toLowerCase() !== 'false';
     console.log(`Enable usage reporting: ${enableUsageReporting}`);
     
-    const githubToken =
-      core.getInput('github_token') || process.env.GITHUB_TOKEN;
+    const githubToken = process.env.GITHUB_TOKEN;
 
     if (!githubToken) {
       console.error('✗ GitHub token is missing');
@@ -441,9 +443,8 @@ async function main() {
       return;
     }
     console.log(`✓ GitHub token is set (length: ${githubToken.length} chars)`);
-
-    const apiKeyInput = core.getInput('api_key');
-    const apiKey = apiKeyInput || process.env.CLOUDCOST_API_KEY;
+    
+    const apiKey = process.env.CLOUDCOST_API_KEY;
     if (!apiKey) {
       console.error('✗ API key is missing');
       core.setFailed(

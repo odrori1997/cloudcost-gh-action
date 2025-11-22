@@ -150,6 +150,12 @@ runs:
         echo "Environment variables being passed:"
         echo "  GITHUB_TOKEN: $([ -n "$GITHUB_TOKEN" ] && echo 'SET' || echo 'NOT SET')"
         echo "  CLOUDCOST_API_KEY: $([ -n "$CLOUDCOST_API_KEY" ] && echo 'SET' || echo 'NOT SET')"
+        echo "  CLOUDCOST_REGION: $([ -n "$CLOUDCOST_REGION" ] && echo "$CLOUDCOST_REGION" || echo 'NOT SET')"
+        echo "  CLOUDCOST_USAGE_PROFILE: $([ -n "$CLOUDCOST_USAGE_PROFILE" ] && echo "$CLOUDCOST_USAGE_PROFILE" || echo 'NOT SET')"
+        echo "  CLOUDCOST_ANALYZER_VERSION: $([ -n "$CLOUDCOST_ANALYZER_VERSION" ] && echo "$CLOUDCOST_ANALYZER_VERSION" || echo 'NOT SET')"
+        echo "  CLOUDCOST_COMMENT_TITLE: $([ -n "$CLOUDCOST_COMMENT_TITLE" ] && echo "$CLOUDCOST_COMMENT_TITLE" || echo 'NOT SET')"
+        echo "  CLOUDCOST_UPDATE_EXISTING_COMMENT: $([ -n "$CLOUDCOST_UPDATE_EXISTING_COMMENT" ] && echo "$CLOUDCOST_UPDATE_EXISTING_COMMENT" || echo 'NOT SET')"
+        echo "  CLOUDCOST_ENABLE_USAGE_REPORTING: $([ -n "$CLOUDCOST_ENABLE_USAGE_REPORTING" ] && echo "$CLOUDCOST_ENABLE_USAGE_REPORTING" || echo 'NOT SET')"
         echo "  APP_CONFIG: $([ -n "$APP_CONFIG" ] && echo 'SET ($APP_CONFIG)' || echo 'NOT SET')"
         echo "Checking $GITHUB_ACTION_PATH/dist/index.js file:"
         echo "  File exists: $([ -f "$GITHUB_ACTION_PATH/dist/index.js" ] && echo 'YES' || echo 'NO')"
@@ -169,5 +175,12 @@ runs:
         GITHUB_TOKEN: ${{ inputs.github_token }}
         # Pass the API key input through to the Node script
         CLOUDCOST_API_KEY: ${{ inputs.api_key }}
+        # Pass the rest of the configurable inputs through to the Node script
+        CLOUDCOST_REGION: ${{ inputs.region }}
+        CLOUDCOST_USAGE_PROFILE: ${{ inputs.usage_profile }}
+        CLOUDCOST_ANALYZER_VERSION: ${{ inputs.analyzer_version }}
+        CLOUDCOST_COMMENT_TITLE: ${{ inputs.comment_title }}
+        CLOUDCOST_UPDATE_EXISTING_COMMENT: ${{ inputs.update_existing_comment }}
+        CLOUDCOST_ENABLE_USAGE_REPORTING: ${{ inputs.enable_usage_reporting }}
         # Note: APP_CONFIG should be set in the workflow step's env section if needed
         # Composite actions don't have direct access to job-level env variables
