@@ -32052,6 +32052,54 @@ function formatUsd(value) {
   return `$${value.toFixed(2)}`;
 }
 
+function logCostEstimate(report, label) {
+  try {
+    if (!report) {
+      console.log(`[${label}] No report data available`);
+      return;
+    }
+    
+    const total = report.grand_total_usd || 0;
+    console.log(`[${label}] Cost Estimate: ${formatUsd(total)}`);
+    
+    const resources = [];
+    const stacks = report.stacks || [];
+    
+    for (const stack of stacks) {
+      const items = stack.items || [];
+      for (const item of items) {
+        if (item && item.service && item.logical_id) {
+          resources.push({
+            stack: stack.name || 'unknown',
+            service: item.service,
+            logicalId: item.logical_id,
+            cost: item.monthly_usd || 0,
+          });
+        }
+      }
+    }
+    
+    resources.sort((a, b) => b.cost - a.cost);
+    
+    console.log(`[${label}] Resource Breakdown (${resources.length} resources):`);
+    if (resources.length === 0) {
+      console.log(`[${label}]   No resources found`);
+    } else {
+      for (const res of resources) {
+        console.log(`[${label}]   ${res.service} | ${res.logicalId} | ${res.stack} | ${formatUsd(res.cost)}`);
+      }
+    }
+    
+    // Force flush to ensure logs appear
+    if (process.stdout.flush) process.stdout.flush();
+  } catch (error) {
+    console.error(`[${label}] Error logging cost estimate: ${error.message}`);
+    if (error.stack) {
+      console.error(`[${label}] Stack: ${error.stack}`);
+    }
+  }
+}
+
 function renderMarkdown(delta, commentTitle) {
   const lines = [];
   lines.push('<!-- cloudcostgh-comment -->');
@@ -32636,6 +32684,13 @@ async function main() {
     const headReport = readJson(headJson);
     console.log(`Head report total: $${headReport.grand_total_usd || 'N/A'}`);
     console.log(`Head report stacks: ${(headReport.stacks || []).length}`);
+
+    console.log('=== Logging cost estimates ===');
+    core.startGroup('Cost Estimates');
+    logCostEstimate(headReport, 'HEAD');
+    logCostEstimate(baseReport, 'BASE');
+    core.endGroup();
+    console.log('=== Finished logging cost estimates ===');
     
     const delta = computeDelta(baseReport, headReport);
     console.log(`Delta computed:`);
