@@ -216,6 +216,30 @@ function formatUsd(value) {
   return `$${value.toFixed(2)}`;
 }
 
+function logCostEstimate(report, label) {
+  const total = report.grand_total_usd || 0;
+  console.log(`\n[${label}] Cost Estimate: ${formatUsd(total)}`);
+  
+  const resources = [];
+  for (const stack of report.stacks || []) {
+    for (const item of stack.items || []) {
+      resources.push({
+        stack: stack.name,
+        service: item.service,
+        logicalId: item.logical_id,
+        cost: item.monthly_usd || 0,
+      });
+    }
+  }
+  
+  resources.sort((a, b) => b.cost - a.cost);
+  
+  console.log(`[${label}] Resource Breakdown (${resources.length} resources):`);
+  for (const res of resources) {
+    console.log(`  ${res.service} | ${res.logicalId} | ${res.stack} | ${formatUsd(res.cost)}`);
+  }
+}
+
 function renderMarkdown(delta, commentTitle) {
   const lines = [];
   lines.push('<!-- cloudcostgh-comment -->');
@@ -800,6 +824,9 @@ async function main() {
     const headReport = readJson(headJson);
     console.log(`Head report total: $${headReport.grand_total_usd || 'N/A'}`);
     console.log(`Head report stacks: ${(headReport.stacks || []).length}`);
+
+    logCostEstimate(headReport, 'HEAD');
+    logCostEstimate(baseReport, 'BASE');
     
     const delta = computeDelta(baseReport, headReport);
     console.log(`Delta computed:`);
