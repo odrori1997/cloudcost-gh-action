@@ -16,6 +16,7 @@ if (process.stderr.flush) process.stderr.flush();
 const fs = require('fs');
 const path = require('path');
 const os = require('os');
+const crypto = require('crypto');
 const { execSync } = require('child_process');
 
 process.stdout.write('Loading @actions/core...\n');
@@ -99,6 +100,49 @@ function readJson(filePath) {
   return parsed;
 }
 
+/**
+ * Computes SHA-256 hashes for all CloudFormation template files in cdk.out
+ * Returns a Map of stackName -> hash
+ */
+function computeTemplateHashes(cdkOutPath) {
+  console.log(`[HASH] Computing template hashes in: ${cdkOutPath}`);
+  const hashes = new Map();
+  
+  if (!fs.existsSync(cdkOutPath)) {
+    console.warn(`[HASH] cdk.out directory not found: ${cdkOutPath}`);
+    return hashes;
+  }
+  
+  try {
+    const files = fs.readdirSync(cdkOutPath);
+    console.log(`[HASH] Found ${files.length} files in cdk.out`);
+    
+    // Find all .template.json files (CDK CloudFormation templates)
+    const templateFiles = files.filter(f => f.endsWith('.template.json'));
+    console.log(`[HASH] Found ${templateFiles.length} CloudFormation template files`);
+    
+    for (const templateFile of templateFiles) {
+      const templatePath = path.join(cdkOutPath, templateFile);
+      const stackName = templateFile.replace('.template.json', '');
+      
+      try {
+        const content = fs.readFileSync(templatePath, 'utf8');
+        const hash = crypto.createHash('sha256').update(content).digest('hex');
+        hashes.set(stackName, hash);
+        console.log(`[HASH] ${stackName}: ${hash.substring(0, 16)}...`);
+      } catch (err) {
+        console.warn(`[HASH] Failed to hash ${templateFile}: ${err.message}`);
+      }
+    }
+    
+    console.log(`[HASH] Computed hashes for ${hashes.size} stacks`);
+  } catch (err) {
+    console.error(`[HASH] Error reading cdk.out directory: ${err.message}`);
+  }
+  
+  return hashes;
+}
+
 function hasAwsCredentials() {
   const env = process.env;
   return !!(
@@ -126,7 +170,7 @@ function getCdkSynthCommand(workDir) {
   }
 }
 
-function computeDelta(baseReport, headReport) {
+function computeDelta(baseReport, headReport, baseHashes, headHashes) {
   function indexReport(report) {
     const stacks = new Map();
     for (const s of report.stacks || []) {
@@ -155,13 +199,38 @@ function computeDelta(baseReport, headReport) {
     ...head.stacks.keys(),
   ]);
 
+  // Identify unchanged stacks based on hash comparison
+  const unchangedStacks = new Set();
+  if (baseHashes && headHashes) {
+    for (const stackName of stackNames) {
+      const baseHash = baseHashes.get(stackName);
+      const headHash = headHashes.get(stackName);
+      if (baseHash && headHash && baseHash === headHash) {
+        unchangedStacks.add(stackName);
+        console.log(`[DELTA] Stack "${stackName}" unchanged (hash: ${baseHash.substring(0, 16)}...)`);
+      }
+    }
+    console.log(`[DELTA] Found ${unchangedStacks.size} unchanged stacks out of ${stackNames.size} total`);
+  }
+
   const stacksDelta = [];
   for (const stackName of stackNames) {
     const baseStack = base.stacks.get(stackName);
     const headStack = head.stacks.get(stackName);
-    const baseTotal = baseStack?.total ?? 0;
-    const headTotal = headStack?.total ?? 0;
-    const diff = headTotal - baseTotal;
+    
+    // For unchanged stacks, use the base cost for both sides (delta = 0)
+    let baseTotal, headTotal, diff;
+    if (unchangedStacks.has(stackName)) {
+      // Use base cost for both to ensure delta = 0
+      baseTotal = baseStack?.total ?? 0;
+      headTotal = baseTotal;
+      diff = 0;
+      console.log(`[DELTA] Stack "${stackName}": Using base cost for both (${baseTotal}) - delta = 0`);
+    } else {
+      baseTotal = baseStack?.total ?? 0;
+      headTotal = headStack?.total ?? 0;
+      diff = headTotal - baseTotal;
+    }
 
     const itemKeys = new Set([
       ...(baseStack ? baseStack.items.keys() : []),
@@ -173,7 +242,12 @@ function computeDelta(baseReport, headReport) {
       const baseItem = baseStack?.items.get(key);
       const headItem = headStack?.items.get(key);
       const baseVal = baseItem?.monthly_usd ?? 0;
-      const headVal = headItem?.monthly_usd ?? 0;
+      
+      // For unchanged stacks, use base cost for both head and base
+      const headVal = unchangedStacks.has(stackName) 
+        ? baseVal 
+        : (headItem?.monthly_usd ?? 0);
+      
       const itemDiff = headVal - baseVal;
       if (itemDiff === 0) continue;
       const [service, logicalId] = key.split('|');
@@ -197,18 +271,28 @@ function computeDelta(baseReport, headReport) {
       head: headTotal,
       diff,
       items,
+      unchanged: unchangedStacks.has(stackName),
     });
   }
 
   stacksDelta.sort((a, b) => Math.abs(b.diff) - Math.abs(a.diff));
 
+  // Recalculate total considering unchanged stacks
+  let totalBase = 0;
+  let totalHead = 0;
+  for (const stackDelta of stacksDelta) {
+    totalBase += stackDelta.base;
+    totalHead += stackDelta.head;
+  }
+
   return {
     total: {
-      base: base.total,
-      head: head.total,
-      diff: head.total - base.total,
+      base: totalBase,
+      head: totalHead,
+      diff: totalHead - totalBase,
     },
     stacks: stacksDelta,
+    unchangedStacksCount: unchangedStacks.size,
   };
 }
 
@@ -647,6 +731,11 @@ async function main() {
       throw new Error('CDK synth did not create cdk.out directory');
     }
     
+    // Compute hashes for HEAD templates
+    console.log(`[HEAD] Computing template hashes...`);
+    const headHashes = computeTemplateHashes(cdkOutPath);
+    console.log(`[HEAD] ✓ Computed ${headHashes.size} template hashes`);
+    
     console.log('[HEAD] Verifying analyzer binary exists...');
     if (!fs.existsSync(analyzerPath)) {
       throw new Error(`Analyzer binary not found at: ${analyzerPath}`);
@@ -780,6 +869,11 @@ async function main() {
       throw new Error('CDK synth did not create cdk.out directory for base');
     }
     
+    // Compute hashes for BASE templates
+    console.log(`[BASE] Computing template hashes...`);
+    const baseHashes = computeTemplateHashes(baseCdkOutPath);
+    console.log(`[BASE] ✓ Computed ${baseHashes.size} template hashes`);
+    
     console.log('[BASE] Running analyzer for base commit...');
     const baseAnalyzerCmd = `"${analyzerPath}" ` +
       `--cdk-out ./cdk.out ` +
@@ -857,12 +951,14 @@ async function main() {
     core.endGroup();
     console.log('=== Finished logging cost estimates ===');
     
-    const delta = computeDelta(baseReport, headReport);
+    console.log('=== Computing cost delta with hash-based optimization ===');
+    const delta = computeDelta(baseReport, headReport, baseHashes, headHashes);
     console.log(`Delta computed:`);
     console.log(`  Base total: $${delta.total.base.toFixed(2)}`);
     console.log(`  Head total: $${delta.total.head.toFixed(2)}`);
     console.log(`  Delta: $${delta.total.diff.toFixed(2)}`);
     console.log(`  Stacks with changes: ${delta.stacks.length}`);
+    console.log(`  Unchanged stacks (skipped AI analysis): ${delta.unchangedStacksCount || 0}`);
     
     const markdown = renderMarkdown(delta, commentTitle);
     console.log(`Markdown generated (length: ${markdown.length} chars)`);
