@@ -171,13 +171,22 @@ function getCdkSynthCommand(workDir) {
 }
 
 function computeDelta(baseReport, headReport, baseHashes, headHashes) {
+  function normalizeStackName(stackName) {
+    if (!stackName) return stackName;
+    const baseName = path.basename(stackName);
+    return baseName.replace(/\.template\.json$/i, '');
+  }
+
   function indexReport(report) {
     const stacks = new Map();
     for (const s of report.stacks || []) {
       const itemMap = new Map();
       for (const item of s.items || []) {
-        const key = `${item.service}|${item.logical_id}`;
-        itemMap.set(key, item);
+        const logicalIdKey = item.logical_id || item.cdk_path || `${item.service || 'unknown'}|${item.logical_id || 'unknown'}`;
+        if (!item.logical_id) {
+          console.warn(`[DELTA] Item missing logical_id in stack "${s.name}", falling back to "${logicalIdKey}"`);
+        }
+        itemMap.set(logicalIdKey, item);
       }
       stacks.set(s.name, {
         name: s.name,
@@ -203,11 +212,12 @@ function computeDelta(baseReport, headReport, baseHashes, headHashes) {
   const unchangedStacks = new Set();
   if (baseHashes && headHashes) {
     for (const stackName of stackNames) {
-      const baseHash = baseHashes.get(stackName);
-      const headHash = headHashes.get(stackName);
+      const normalized = normalizeStackName(stackName);
+      const baseHash = baseHashes ? baseHashes.get(normalized) : undefined;
+      const headHash = headHashes ? headHashes.get(normalized) : undefined;
       if (baseHash && headHash && baseHash === headHash) {
         unchangedStacks.add(stackName);
-        console.log(`[DELTA] Stack "${stackName}" unchanged (hash: ${baseHash.substring(0, 16)}...)`);
+        console.log(`[DELTA] Stack "${stackName}" (normalized: "${normalized}") unchanged (hash: ${baseHash.substring(0, 16)}...)`);
       }
     }
     console.log(`[DELTA] Found ${unchangedStacks.size} unchanged stacks out of ${stackNames.size} total`);
@@ -250,7 +260,8 @@ function computeDelta(baseReport, headReport, baseHashes, headHashes) {
       
       const itemDiff = headVal - baseVal;
       if (itemDiff === 0) continue;
-      const [service, logicalId] = key.split('|');
+      const logicalId = key;
+      const service = headItem?.service || baseItem?.service || 'Unknown';
       items.push({
         service,
         logicalId,
