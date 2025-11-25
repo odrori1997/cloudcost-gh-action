@@ -32119,16 +32119,53 @@ function computeDelta(baseReport, headReport, baseHashes, headHashes) {
     return result;
   }
 
+  /**
+   * Index a report into a structure usable by the delta engine.
+   *
+   * Supports both the old schema (items with `logical_id`, `service`, `monthly_usd`)
+   * and the new analyzer schema (items with `LogicalID`, `Component`, `ResourceType`,
+   * `Est. Monthly Cost`, `CostBreakdown`).
+   */
   function indexReport(report) {
     const stacks = new Map();
     for (const s of report.stacks || []) {
       const itemMap = new Map();
       for (const item of s.items || []) {
-        const logicalIdKey = item.logical_id || item.cdk_path || `${item.service || 'unknown'}|${item.logical_id || 'unknown'}`;
-        if (!item.logical_id) {
-          console.warn(`[DELTA] Item missing logical_id in stack "${s.name}", falling back to "${logicalIdKey}"`);
-        }
-        itemMap.set(logicalIdKey, item);
+        // Derive logical ID: prefer new schema, fall back to old
+        const logicalId =
+          item.LogicalID ||
+          item.logical_id ||
+          item.cdk_path ||
+          `${item.service || item.Component || 'unknown'}|${item.LogicalID || item.logical_id || 'unknown'}`;
+
+        // Derive service/component label
+        const service =
+          item.Component ||
+          item.ResourceType ||
+          item.service ||
+          'Unknown';
+
+        // Derive monthly cost: new schema uses 'Est. Monthly Cost', old uses 'monthly_usd'
+        const monthlyCostRaw = item['Est. Monthly Cost'] ?? item.monthly_usd;
+        const monthlyCost =
+          typeof monthlyCostRaw === 'number' && Number.isFinite(monthlyCostRaw)
+            ? monthlyCostRaw
+            : 0;
+
+        // Normalize item into a consistent internal shape
+        const normalizedItem = {
+          logical_id: logicalId,
+          service,
+          monthly_usd: monthlyCost,
+          // Carry through breakdown and any other raw fields for later use
+          CostBreakdown: item.CostBreakdown || item.costBreakdown || item.cost_breakdown || [],
+          cdk_path: item.cdk_path,
+          notes: item.notes || [],
+          // Keep original item reference for any extra fields
+          _raw: item,
+        };
+
+        itemMap.set(logicalId, normalizedItem);
       }
       stacks.set(s.name, {
         name: s.name,
@@ -32193,17 +32230,21 @@ function computeDelta(baseReport, headReport, baseHashes, headHashes) {
     for (const key of itemKeys) {
       const baseItem = baseStack?.items.get(key);
       const headItem = headStack?.items.get(key);
+
+      // Use normalized monthly_usd field set by indexReport
       const baseVal = baseItem?.monthly_usd ?? 0;
-      
+
       // For unchanged stacks, use base cost for both head and base
-      const headVal = unchangedStacks.has(stackName) 
-        ? baseVal 
+      const headVal = unchangedStacks.has(stackName)
+        ? baseVal
         : (headItem?.monthly_usd ?? 0);
-      
+
       const itemDiff = headVal - baseVal;
       if (itemDiff === 0) continue;
+
       const logicalId = key;
       const service = headItem?.service || baseItem?.service || 'Unknown';
+
       items.push({
         service,
         logicalId,
@@ -32310,42 +32351,46 @@ function renderMarkdown(delta, commentTitle) {
   lines.push(`## ${commentTitle}`);
   lines.push('');
 
+  // ─────────────────────────────────────────────────────────────────────────
+  // Section 1: Grand Total Cost Delta
+  // ─────────────────────────────────────────────────────────────────────────
   const total = delta.total;
-  lines.push('**Total monthly cost**');
+  lines.push('### Grand Total Cost Delta');
   lines.push('');
-  lines.push('|        | Base | Head | Δ |');
-  lines.push('|--------|------|------|---|');
+  lines.push('| Base | Head | Δ |');
+  lines.push('|------|------|---|');
   lines.push(
-    `| Amount | ${formatUsd(total.base)} | ${formatUsd(
-      total.head,
-    )} | ${formatUsd(total.diff)} |`,
+    `| ${formatUsd(total.base)} | ${formatUsd(total.head)} | ${formatUsd(total.diff)} |`,
   );
   lines.push('');
 
-  const allItems = [];
-  for (const stack of delta.stacks) {
-    for (const item of stack.items) {
-      allItems.push(item);
-    }
-  }
+  // ─────────────────────────────────────────────────────────────────────────
+  // Section 2: Per-Stack Cost Delta (only stacks with |Δ| > 0)
+  // ─────────────────────────────────────────────────────────────────────────
+  const stacksWithDelta = (delta.stacks || [])
+    .filter((s) => s.diff !== 0)
+    .sort((a, b) => Math.abs(b.diff) - Math.abs(a.diff));
 
-  allItems.sort((a, b) => Math.abs(b.diff) - Math.abs(a.diff));
-  const topItems = allItems.slice(0, 10);
+  lines.push('### Per-Stack Cost Delta');
+  lines.push('');
 
-  if (topItems.length > 0) {
-    lines.push('**Top resource deltas**');
+  if (stacksWithDelta.length === 0) {
+    lines.push('_No stacks with non-zero cost delta._');
     lines.push('');
-    lines.push('| Stack | Service | Logical ID | Base | Head | Δ |');
-    lines.push('|-------|---------|-----------|------|------|---|');
-    for (const item of topItems) {
+  } else {
+    lines.push('| Stack | Base | Head | Δ |');
+    lines.push('|-------|------|------|---|');
+    for (const stack of stacksWithDelta) {
       lines.push(
-        `| ${item.stackName} | ${item.service} | ${item.logicalId} | ${formatUsd(
-          item.base,
-        )} | ${formatUsd(item.head)} | ${formatUsd(item.diff)} |`,
+        `| ${stack.stackName} | ${formatUsd(stack.base)} | ${formatUsd(stack.head)} | ${formatUsd(stack.diff)} |`,
       );
     }
     lines.push('');
   }
+
+  // ─────────────────────────────────────────────────────────────────────────
+  // Section 3: Per-Stack Cost Breakdown (only stacks with |Δ| > 0)
+  // ─────────────────────────────────────────────────────────────────────────
 
   /**
    * Merge base/head breakdown arrays into a single list keyed by component
@@ -32414,16 +32459,17 @@ function renderMarkdown(delta, commentTitle) {
     return merged;
   }
 
-  // Detailed Cost Breakdown section
+  // Build breakdown view only for stacks that have non-zero delta
   const stacksWithBreakdown = [];
-  for (const stack of delta.stacks || []) {
+  for (const stack of stacksWithDelta) {
     const resourcesWithBreakdown = [];
     for (const item of stack.items || []) {
-      const hasDelta = item.diff !== 0;
+      // Include resources that have breakdown data (even if item-level diff is 0,
+      // the stack-level diff is non-zero so we still want to show context)
       const hasBreakdown =
         (item.breakdownBase && item.breakdownBase.length > 0) ||
         (item.breakdownHead && item.breakdownHead.length > 0);
-      if (!hasDelta || !hasBreakdown) continue;
+      if (!hasBreakdown) continue;
       resourcesWithBreakdown.push(item);
     }
     if (resourcesWithBreakdown.length > 0) {
@@ -32434,41 +32480,38 @@ function renderMarkdown(delta, commentTitle) {
     }
   }
 
-  lines.push('## Detailed Cost Breakdown');
+  lines.push('### Per-Stack Cost Breakdown');
   lines.push('');
 
   if (stacksWithBreakdown.length === 0) {
     lines.push(
-      '_No detailed cost breakdown data available for resources with cost deltas._',
+      '_No detailed cost breakdown data available for stacks with cost deltas._',
     );
     lines.push('');
     return lines.join('\n');
   }
 
   lines.push(
-    'The tables below show cost drivers for resources with non-zero monthly cost deltas, grouped by stack.',
+    'The tables below show cost drivers for resources in stacks with non-zero monthly cost deltas.',
   );
   lines.push('');
 
   const MAX_ROWS_PER_STACK = 30;
 
   for (const stack of stacksWithBreakdown) {
-    lines.push(`### Stack: ${stack.stackName}`);
+    lines.push(`#### Stack: ${stack.stackName}`);
     lines.push('');
     lines.push(
       '| Resource | Component | Units | Rate / Unit | Base Monthly | Head Monthly | Δ |',
     );
     lines.push(
-      '|----------|-----------|-------|-------------|--------------|-------------|---|',
+      '|----------|-----------|-------|-------------|--------------|--------------|---|',
     );
 
     const rows = [];
 
     for (const res of stack.resources) {
-      const merged = mergeBreakdowns(
-        res.breakdownBase,
-        res.breakdownHead,
-      );
+      const merged = mergeBreakdowns(res.breakdownBase, res.breakdownHead);
       const resourceLabel = `${res.service} / ${res.logicalId}`;
       for (const m of merged) {
         rows.push({
@@ -32488,16 +32531,14 @@ function renderMarkdown(delta, commentTitle) {
 
     if (limitedRows.length === 0) {
       lines.push(
-        '| _No detailed breakdown data available for changed resources in this stack._ |  |  |  |  |  |  |',
+        '| _No detailed breakdown data available for resources in this stack._ |  |  |  |  |  |  |',
       );
     } else {
       for (const row of limitedRows) {
         lines.push(
           `| ${row.resource} | ${row.component} | ${row.units} | ${
             row.ratePerUnit || ''
-          } | ${formatUsd(row.base)} | ${formatUsd(
-            row.head,
-          )} | ${formatUsd(row.diff)} |`,
+          } | ${formatUsd(row.base)} | ${formatUsd(row.head)} | ${formatUsd(row.diff)} |`,
         );
       }
       if (rows.length > MAX_ROWS_PER_STACK) {
