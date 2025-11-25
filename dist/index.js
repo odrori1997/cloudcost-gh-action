@@ -32040,6 +32040,85 @@ function computeDelta(baseReport, headReport, baseHashes, headHashes) {
     return baseName.replace(/\.template\.json$/i, '');
   }
 
+  /**
+   * Normalize a single breakdown entry into a consistent shape:
+   *   { name, units, ratePerUnit, monthlyCost }
+   *
+   * This is intentionally defensive so that it can support multiple
+   * possible field names from the analyzer while remaining backwards
+   * compatible if the breakdown data is absent.
+   */
+  function normalizeBreakdownEntry(raw) {
+    if (!raw || typeof raw !== 'object') return null;
+
+    const name =
+      raw.name ||
+      raw.component ||
+      raw.Component ||
+      raw.LogicalID ||
+      'Unknown';
+
+    const units = raw.units || raw.Units || '';
+
+    const ratePerUnitRaw =
+      raw.ratePerUnit ??
+      raw.rate_per_unit ??
+      raw.RatePerUnit;
+    const ratePerUnit =
+      typeof ratePerUnitRaw === 'number' && Number.isFinite(ratePerUnitRaw)
+        ? ratePerUnitRaw
+        : 0;
+
+    const monthlyCostRaw =
+      raw.monthlyCost ??
+      raw.monthly_cost ??
+      raw['Est. Monthly Cost'];
+    const monthlyCost =
+      typeof monthlyCostRaw === 'number' && Number.isFinite(monthlyCostRaw)
+        ? monthlyCostRaw
+        : 0;
+
+    return { name, units, ratePerUnit, monthlyCost };
+  }
+
+  /**
+   * Extract and normalize the cost breakdown array from an analyzer item.
+   *
+   * The new schema defines a `CostBreakdown` array with entries:
+   *   { name, units, ratePerUnit, monthlyCost }
+   *
+   * To be resilient to changes and casing differences, we check a few
+   * common property names. If no breakdown is present, this returns [].
+   */
+  function extractBreakdown(item) {
+    if (!item || typeof item !== 'object') return [];
+
+    const rawArray =
+      item.CostBreakdown ||
+      item.costBreakdown ||
+      item.cost_breakdown ||
+      item.breakdown ||
+      [];
+
+    if (!Array.isArray(rawArray)) return [];
+
+    const result = [];
+    for (const raw of rawArray) {
+      const normalized = normalizeBreakdownEntry(raw);
+      if (!normalized) continue;
+      // Ignore completely zero rows to avoid noise
+      if (
+        normalized.monthlyCost === 0 &&
+        normalized.ratePerUnit === 0
+      ) {
+        continue;
+      }
+      result.push(normalized);
+    }
+
+    return result;
+  }
+
   function indexReport(report) {
     const stacks = new Map();
     for (const s of report.stacks || []) {
@@ -32134,6 +32213,9 @@ function computeDelta(baseReport, headReport, baseHashes, headHashes) {
         diff: itemDiff,
         notes: headItem?.notes || baseItem?.notes || [],
         stackName,
+        // Attach normalized cost breakdown data from the analyzer
+        breakdownBase: extractBreakdown(baseItem),
+        breakdownHead: extractBreakdown(headItem),
       });
     }
 
@@ -32262,6 +32344,169 @@ function renderMarkdown(delta, commentTitle) {
         )} | ${formatUsd(item.head)} | ${formatUsd(item.diff)} |`,
       );
     }
+    lines.push('');
+  }
+
+  /**
+   * Merge base/head breakdown arrays into a single list keyed by component
+   * name (or a best-effort synthetic key), computing base/head/diff for
+   * each cost driver.
+   */
+  function mergeBreakdowns(baseArr, headArr) {
+    const map = new Map();
+
+    const addEntries = (arr, type) => {
+      if (!Array.isArray(arr)) return;
+      for (const entry of arr) {
+        if (!entry) continue;
+        const key =
+          entry.name ||
+          `${entry.units || ''}|${entry.ratePerUnit ?? ''}`;
+
+        if (!map.has(key)) {
+          map.set(key, {
+            name: entry.name || 'Unknown',
+            units: entry.units || '',
+            ratePerUnit:
+              typeof entry.ratePerUnit === 'number' &&
+              Number.isFinite(entry.ratePerUnit)
+                ? entry.ratePerUnit
+                : 0,
+            base: 0,
+            head: 0,
+          });
+        }
+
+        const agg = map.get(key);
+        const cost =
+          typeof entry.monthlyCost === 'number' &&
+          Number.isFinite(entry.monthlyCost)
+            ? entry.monthlyCost
+            : 0;
+
+        if (type === 'base') {
+          agg.base += cost;
+        } else if (type === 'head') {
+          agg.head += cost;
+        }
+      }
+    };
+
+    addEntries(baseArr, 'base');
+    addEntries(headArr, 'head');
+
+    const merged = [];
+    for (const value of map.values()) {
+      const diff = value.head - value.base;
+      // Skip purely zero rows
+      if (diff === 0 && value.base === 0 && value.head === 0) continue;
+      merged.push({
+        name: value.name,
+        units: value.units,
+        ratePerUnit: value.ratePerUnit,
+        base: value.base,
+        head: value.head,
+        diff,
+      });
+    }
+
+    merged.sort((a, b) => Math.abs(b.diff) - Math.abs(a.diff));
+    return merged;
+  }
+
+  // Detailed Cost Breakdown section
+  const stacksWithBreakdown = [];
+  for (const stack of delta.stacks || []) {
+    const resourcesWithBreakdown = [];
+    for (const item of stack.items || []) {
+      const hasDelta = item.diff !== 0;
+      const hasBreakdown =
+        (item.breakdownBase && item.breakdownBase.length > 0) ||
+        (item.breakdownHead && item.breakdownHead.length > 0);
+      if (!hasDelta || !hasBreakdown) continue;
+      resourcesWithBreakdown.push(item);
+    }
+    if (resourcesWithBreakdown.length > 0) {
+      stacksWithBreakdown.push({
+        stackName: stack.stackName,
+        resources: resourcesWithBreakdown,
+      });
+    }
+  }
+
+  lines.push('## Detailed Cost Breakdown');
+  lines.push('');
+
+  if (stacksWithBreakdown.length === 0) {
+    lines.push(
+      '_No detailed cost breakdown data available for resources with cost deltas._',
+    );
+    lines.push('');
+    return lines.join('\n');
+  }
+
+  lines.push(
+    'The tables below show cost drivers for resources with non-zero monthly cost deltas, grouped by stack.',
+  );
+  lines.push('');
+
+  const MAX_ROWS_PER_STACK = 30;
+
+  for (const stack of stacksWithBreakdown) {
+    lines.push(`### Stack: ${stack.stackName}`);
+    lines.push('');
+    lines.push(
+      '| Resource | Component | Units | Rate / Unit | Base Monthly | Head Monthly | Δ |',
+    );
+    lines.push(
+      '|----------|-----------|-------|-------------|--------------|-------------|---|',
+    );
+
+    const rows = [];
+
+    for (const res of stack.resources) {
+      const merged = mergeBreakdowns(
+        res.breakdownBase,
+        res.breakdownHead,
+      );
+      const resourceLabel = `${res.service} / ${res.logicalId}`;
+      for (const m of merged) {
+        rows.push({
+          resource: resourceLabel,
+          component: m.name,
+          units: m.units || '',
+          ratePerUnit: m.ratePerUnit,
+          base: m.base,
+          head: m.head,
+          diff: m.diff,
+        });
+      }
+    }
+
+    rows.sort((a, b) => Math.abs(b.diff) - Math.abs(a.diff));
+    const limitedRows = rows.slice(0, MAX_ROWS_PER_STACK);
+
+    if (limitedRows.length === 0) {
+      lines.push(
+        '| _No detailed breakdown data available for changed resources in this stack._ |  |  |  |  |  |  |',
+      );
+    } else {
+      for (const row of limitedRows) {
+        lines.push(
+          `| ${row.resource} | ${row.component} | ${row.units} | ${
+            row.ratePerUnit || ''
+          } | ${formatUsd(row.base)} | ${formatUsd(
+            row.head,
+          )} | ${formatUsd(row.diff)} |`,
+        );
+      }
+      if (rows.length > MAX_ROWS_PER_STACK) {
+        lines.push(
+          `| _+${rows.length - MAX_ROWS_PER_STACK} additional breakdown row(s) omitted for brevity_ |  |  |  |  |  |  |`,
+        );
+      }
+    }
+
     lines.push('');
   }
 
