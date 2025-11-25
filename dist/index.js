@@ -31979,6 +31979,33 @@ function computeTemplateHashes(cdkOutPath) {
   return hashes;
 }
 
+function copyDir(src, dest) {
+  console.log(`[FS] Copying directory from ${src} to ${dest}`);
+  if (!fs.existsSync(src)) {
+    console.warn(`[FS] Source directory does not exist, skipping copy: ${src}`);
+    return;
+  }
+  try {
+    if (fs.existsSync(dest)) {
+      fs.rmSync(dest, { recursive: true, force: true });
+    }
+    fs.mkdirSync(dest, { recursive: true });
+    const entries = fs.readdirSync(src, { withFileTypes: true });
+    for (const entry of entries) {
+      const srcPath = path.join(src, entry.name);
+      const destPath = path.join(dest, entry.name);
+      if (entry.isDirectory()) {
+        copyDir(srcPath, destPath);
+      } else if (entry.isFile()) {
+        fs.copyFileSync(srcPath, destPath);
+      }
+    }
+    console.log(`[FS] ✓ Directory copy completed`);
+  } catch (err) {
+    console.error(`[FS] Failed to copy directory from ${src} to ${dest}: ${err.message}`);
+  }
+}
+
 function hasAwsCredentials() {
   const env = process.env;
   return !!(
@@ -32464,11 +32491,15 @@ async function main() {
     const analyzerPath = path.join(analyzerDir, 'analyzer');
     const headJson = path.join(tmpDir, 'cloudcost-head-report.json');
     const baseJson = path.join(tmpDir, 'cloudcost-base-report.json');
+    const headCdkOutSnapshot = path.join(tmpDir, 'cloudcost-head-cdk-out');
+    const baseCdkOutSnapshot = path.join(tmpDir, 'cloudcost-base-cdk-out');
     
     console.log(`Analyzer directory: ${analyzerDir}`);
     console.log(`Analyzer path: ${analyzerPath}`);
     console.log(`Head report JSON: ${headJson}`);
     console.log(`Base report JSON: ${baseJson}`);
+    console.log(`Head CDK snapshot: ${headCdkOutSnapshot}`);
+    console.log(`Base CDK snapshot: ${baseCdkOutSnapshot}`);
 
     console.log('Creating analyzer directory...');
     fs.mkdirSync(analyzerDir, { recursive: true });
@@ -32583,68 +32614,16 @@ async function main() {
     const headHashes = computeTemplateHashes(cdkOutPath);
     console.log(`[HEAD] ✓ Computed ${headHashes.size} template hashes`);
     
+    console.log(`[HEAD] Copying cdk.out to head snapshot directory...`);
+    copyDir(cdkOutPath, headCdkOutSnapshot);
+    console.log(`[HEAD] ✓ Head cdk.out snapshot created at: ${headCdkOutSnapshot}`);
+    
     console.log('[HEAD] Verifying analyzer binary exists...');
     if (!fs.existsSync(analyzerPath)) {
       throw new Error(`Analyzer binary not found at: ${analyzerPath}`);
     }
     const analyzerStats = fs.statSync(analyzerPath);
     console.log(`[HEAD] Analyzer binary exists (${analyzerStats.size} bytes, executable: ${(analyzerStats.mode & parseInt('111', 8)) !== 0})`);
-    
-    console.log('[HEAD] Running analyzer for head commit...');
-    const headAnalyzerCmd = `"${analyzerPath}" ` +
-      `--cdk-out ./cdk.out ` +
-      `--region ${region} ` +
-      `--usage-profile ${usageProfile} ` +
-      `--out-json "${headJson}" ` +
-      `--out-md "${path.join(tmpDir, 'cloudcost-head-report.md')}" ` +
-      `--api-key "${apiKey}" ` +
-      `--backend-url "${backendUrl}"`;
-    console.log(`[HEAD] Analyzer command (sanitized): ${headAnalyzerCmd.replace(apiKey, '***')}`);
-    console.log(`[HEAD] Backend URL: ${backendUrl}`);
-    console.log(`[HEAD] Expected output JSON: ${headJson}`);
-    
-    // Log what backend requests the analyzer will make
-    console.log(`[HEAD] [BACKEND] Analyzer will make requests to backend:`);
-    console.log(`[HEAD] [BACKEND]   - Base URL: ${backendUrl}`);
-    console.log(`[HEAD] [BACKEND]   - API Key: Set (${apiKey.length} chars, starts with: ${apiKey.substring(0, 4)}...)`);
-    console.log(`[HEAD] [BACKEND]   - Region: ${region}`);
-    console.log(`[HEAD] [BACKEND]   - Usage Profile: ${usageProfile}`);
-    console.log(`[HEAD] [BACKEND]   - The analyzer will query pricing data from the backend API`);
-    console.log(`[HEAD] [BACKEND]   - Watch for analyzer's HTTP request logs above`);
-    
-    const analyzerStartTime = Date.now();
-    console.log(`[HEAD] [BACKEND] Starting analyzer execution (will make backend requests)...`);
-    runCmd(headAnalyzerCmd, { cwd: workDir });
-    const analyzerDuration = Date.now() - analyzerStartTime;
-    console.log(`[HEAD] Analyzer command completed (took ${analyzerDuration}ms)`);
-    console.log(`[HEAD] [BACKEND] Analyzer execution finished - check above for any HTTP request logs from the analyzer`);
-    
-    console.log(`[HEAD] Checking for head report file...`);
-    if (fs.existsSync(headJson)) {
-      const stats = fs.statSync(headJson);
-      console.log(`[HEAD] ✓ Head report generated (size: ${stats.size} bytes)`);
-      if (stats.size === 0) {
-        console.error(`[HEAD] ✗ Head report file is empty!`);
-        throw new Error(`Head report file is empty: ${headJson}`);
-      }
-      // Log first few lines of the report for debugging
-      try {
-        const reportPreview = fs.readFileSync(headJson, 'utf8').substring(0, 500);
-        console.log(`[HEAD] Report preview: ${reportPreview}...`);
-      } catch (e) {
-        console.warn(`[HEAD] Could not read report preview: ${e.message}`);
-      }
-    } else {
-      console.error(`[HEAD] ✗ Head report file not found: ${headJson}`);
-      console.error(`[HEAD] Listing temp directory contents...`);
-      try {
-        const tempContents = fs.readdirSync(tmpDir);
-        console.error(`[HEAD] Temp directory contains: ${tempContents.join(', ')}`);
-      } catch (e) {
-        console.error(`[HEAD] Could not list temp directory: ${e.message}`);
-      }
-      throw new Error(`Head report file not found: ${headJson}`);
-    }
     core.endGroup();
 
     // Base analysis
@@ -32721,15 +32700,81 @@ async function main() {
     const baseHashes = computeTemplateHashes(baseCdkOutPath);
     console.log(`[BASE] ✓ Computed ${baseHashes.size} template hashes`);
     
-    console.log('[BASE] Running analyzer for base commit...');
+    console.log(`[BASE] Copying cdk.out to base snapshot directory...`);
+    copyDir(baseCdkOutPath, baseCdkOutSnapshot);
+    console.log(`[BASE] ✓ Base cdk.out snapshot created at: ${baseCdkOutSnapshot}`);
+    
+    // Determine which stacks changed between base and head
+    const changedStacks = new Set();
+    if (baseHashes && headHashes) {
+      for (const [stackName, baseHash] of baseHashes.entries()) {
+        const headHash = headHashes.get(stackName);
+        if (!headHash || headHash !== baseHash) {
+          changedStacks.add(stackName);
+        }
+      }
+      for (const stackName of headHashes.keys()) {
+        if (!baseHashes.has(stackName)) {
+          changedStacks.add(stackName);
+        }
+      }
+      console.log(
+        `[STACKS] Changed stacks based on template hashes: ${
+          Array.from(changedStacks).join(', ') || '(none)'
+        }`
+      );
+    } else {
+      console.log('[STACKS] Hash maps missing; analyzer will run on all stacks (no --stack filter)');
+    }
+    
+    // Build --stack arguments for analyzer based on changed stacks
+    const headStackArgs = [];
+    const baseStackArgs = [];
+    if (changedStacks.size > 0) {
+      console.log(
+        `[STACKS] Applying stack filter to analyzer for ${changedStacks.size} stack(s)`
+      );
+      for (const stackName of changedStacks) {
+        const headTemplate = path.join(headCdkOutSnapshot, `${stackName}.template.json`);
+        if (fs.existsSync(headTemplate)) {
+          headStackArgs.push(`--stack "${headTemplate}"`);
+        } else {
+          console.log(
+            `[STACKS] [HEAD] No template for stack "${stackName}" at ${headTemplate}, skipping`
+          );
+        }
+        
+        const baseTemplate = path.join(baseCdkOutSnapshot, `${stackName}.template.json`);
+        if (fs.existsSync(baseTemplate)) {
+          baseStackArgs.push(`--stack "${baseTemplate}"`);
+        } else {
+          console.log(
+            `[STACKS] [BASE] No template for stack "${stackName}" at ${baseTemplate}, skipping`
+          );
+        }
+      }
+      console.log(
+        `[STACKS] [HEAD] Will pass ${headStackArgs.length} --stack arg(s) to analyzer`
+      );
+      console.log(
+        `[STACKS] [BASE] Will pass ${baseStackArgs.length} --stack arg(s) to analyzer`
+      );
+    } else {
+      console.log(
+        '[STACKS] No changed stacks detected; analyzer will run on all stacks (no --stack filter)'
+      );
+    }
+    
+    console.log('[BASE] Running analyzer for base commit (using snapshot)...');
     const baseAnalyzerCmd = `"${analyzerPath}" ` +
-      `--cdk-out ./cdk.out ` +
+      `--cdk-out "${baseCdkOutSnapshot}" ` +
       `--region ${region} ` +
       `--usage-profile ${usageProfile} ` +
       `--out-json "${baseJson}" ` +
       `--out-md "${path.join(tmpDir, 'cloudcost-base-report.md')}" ` +
       `--api-key "${apiKey}" ` +
-      `--backend-url "${backendUrl}"`;
+      `--backend-url "${backendUrl}" ` +
+      baseStackArgs.join(' ');
     console.log(`[BASE] Analyzer command (sanitized): ${baseAnalyzerCmd.replace(apiKey, '***')}`);
     console.log(`[BASE] Backend URL: ${backendUrl}`);
     console.log(`[BASE] Expected output JSON: ${baseJson}`);
@@ -32749,6 +32794,63 @@ async function main() {
     const baseAnalyzerDuration = Date.now() - baseAnalyzerStartTime;
     console.log(`[BASE] Analyzer command completed (took ${baseAnalyzerDuration}ms)`);
     console.log(`[BASE] [BACKEND] Analyzer execution finished - check above for any HTTP request logs from the analyzer`);
+    
+    console.log('[HEAD] Running analyzer for head commit (using snapshot)...');
+    const headAnalyzerCmd = `"${analyzerPath}" ` +
+      `--cdk-out "${headCdkOutSnapshot}" ` +
+      `--region ${region} ` +
+      `--usage-profile ${usageProfile} ` +
+      `--out-json "${headJson}" ` +
+      `--out-md "${path.join(tmpDir, 'cloudcost-head-report.md')}" ` +
+      `--api-key "${apiKey}" ` +
+      `--backend-url "${backendUrl}" ` +
+      headStackArgs.join(' ');
+    console.log(`[HEAD] Analyzer command (sanitized): ${headAnalyzerCmd.replace(apiKey, '***')}`);
+    console.log(`[HEAD] Backend URL: ${backendUrl}`);
+    console.log(`[HEAD] Expected output JSON: ${headJson}`);
+    
+    // Log what backend requests the analyzer will make
+    console.log(`[HEAD] [BACKEND] Analyzer will make requests to backend:`);
+    console.log(`[HEAD] [BACKEND]   - Base URL: ${backendUrl}`);
+    console.log(`[HEAD] [BACKEND]   - API Key: Set (${apiKey.length} chars, starts with: ${apiKey.substring(0, 4)}...)`);
+    console.log(`[HEAD] [BACKEND]   - Region: ${region}`);
+    console.log(`[HEAD] [BACKEND]   - Usage Profile: ${usageProfile}`);
+    console.log(`[HEAD] [BACKEND]   - The analyzer will query pricing data from the backend API`);
+    console.log(`[HEAD] [BACKEND]   - Watch for analyzer's HTTP request logs above`);
+    
+    const headAnalyzerStartTime = Date.now();
+    console.log(`[HEAD] [BACKEND] Starting analyzer execution (will make backend requests)...`);
+    runCmd(headAnalyzerCmd, { cwd: workDir });
+    const headAnalyzerDuration = Date.now() - headAnalyzerStartTime;
+    console.log(`[HEAD] Analyzer command completed (took ${headAnalyzerDuration}ms)`);
+    console.log(`[HEAD] [BACKEND] Analyzer execution finished - check above for any HTTP request logs from the analyzer`);
+    
+    console.log(`[HEAD] Checking for head report file...`);
+    if (fs.existsSync(headJson)) {
+      const stats = fs.statSync(headJson);
+      console.log(`[HEAD] ✓ Head report generated (size: ${stats.size} bytes)`);
+      if (stats.size === 0) {
+        console.error(`[HEAD] ✗ Head report file is empty!`);
+        throw new Error(`Head report file is empty: ${headJson}`);
+      }
+      // Log first few lines of the report for debugging
+      try {
+        const reportPreview = fs.readFileSync(headJson, 'utf8').substring(0, 500);
+        console.log(`[HEAD] Report preview: ${reportPreview}...`);
+      } catch (e) {
+        console.warn(`[HEAD] Could not read report preview: ${e.message}`);
+      }
+    } else {
+      console.error(`[HEAD] ✗ Head report file not found: ${headJson}`);
+      console.error(`[HEAD] Listing temp directory contents...`);
+      try {
+        const tempContents = fs.readdirSync(tmpDir);
+        console.error(`[HEAD] Temp directory contains: ${tempContents.join(', ')}`);
+      } catch (e) {
+        console.error(`[HEAD] Could not list temp directory: ${e.message}`);
+      }
+      throw new Error(`Head report file not found: ${headJson}`);
+    }
     
     console.log(`[BASE] Checking for base report file...`);
     if (fs.existsSync(baseJson)) {
