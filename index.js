@@ -324,8 +324,10 @@ function computeDelta(baseReport, headReport, baseHashes, headHashes) {
 
         itemMap.set(logicalId, normalizedItem);
       }
-      stacks.set(s.name, {
-        name: s.name,
+      const normalizedName = normalizeStackName(s.name);
+      stacks.set(normalizedName, {
+        name: normalizedName,
+        fullPath: s.name,
         total: s.total_monthly_usd ?? 0,
         items: itemMap,
       });
