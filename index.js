@@ -283,13 +283,6 @@ function computeDelta(baseReport, headReport, baseHashes, headHashes) {
     return result;
   }
 
-  /**
-   * Index a report into a structure usable by the delta engine.
-   *
-   * Supports both the old schema (items with `logical_id`, `service`, `monthly_usd`)
-   * and the new analyzer schema (items with `LogicalID`, `Component`, `ResourceType`,
-   * `Est. Monthly Cost`, `CostBreakdown`).
-   */
   function indexReport(report) {
     const stacks = new Map();
     for (const s of report.stacks || []) {
