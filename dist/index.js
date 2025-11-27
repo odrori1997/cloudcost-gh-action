@@ -32119,13 +32119,6 @@ function computeDelta(baseReport, headReport, baseHashes, headHashes) {
     return result;
   }
 
-  /**
-   * Index a report into a structure usable by the delta engine.
-   *
-   * Supports both the old schema (items with `logical_id`, `service`, `monthly_usd`)
-   * and the new analyzer schema (items with `LogicalID`, `Component`, `ResourceType`,
-   * `Est. Monthly Cost`, `CostBreakdown`).
-   */
   function indexReport(report) {
     const stacks = new Map();
     for (const s of report.stacks || []) {
@@ -32167,8 +32160,10 @@ function computeDelta(baseReport, headReport, baseHashes, headHashes) {
 
         itemMap.set(logicalId, normalizedItem);
       }
-      stacks.set(s.name, {
-        name: s.name,
+      const normalizedName = normalizeStackName(s.name);
+      stacks.set(normalizedName, {
+        name: normalizedName,
+        fullPath: s.name,
         total: s.total_monthly_usd ?? 0,
         items: itemMap,
       });
